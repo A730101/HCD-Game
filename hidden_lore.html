@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>孤獨倖存者：人物誌 (Hidden Lore)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #111;
+            color: #eee;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .lore-card {
+            background: #222;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .lore-title {
+            color: #fbbf24;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .lore-role {
+            font-size: 0.9rem;
+            color: #9ca3af;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .section-header {
+            font-weight: bold;
+            margin-top: 1rem;
+            color: #60a5fa;
+            border-bottom: 1px solid #374151;
+            padding-bottom: 4px;
+            margin-bottom: 8px;
+        }
+
+        .dialogue-line {
+            font-style: italic;
+            color: #d1d5db;
+            margin-left: 1rem;
+            border-left: 3px solid #4b5563;
+            padding-left: 8px;
+            margin-bottom: 4px;
+            font-size: 0.9rem;
+        }
+
+        .tag-mechanic {
+            display: inline-block;
+            background: #374151;
+            color: #e5e7eb;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-right: 4px;
+        }
+    </style>
+</head>
+
+<body class="p-8 max-w-4xl mx-auto">
+
+    <h1 class="text-3xl font-bold mb-8 text-center text-white border-b border-gray-700 pb-4">
+        <i class="fas fa-book-skull mr-2"></i> 孤獨倖存者：人物誌
+    </h1>
+
+    <div class="mb-8 text-gray-400">
+        <p>本頁面收錄《孤獨倖存者》所有登場角色的背景設定、性格描述與對白文本。此資料僅供 AI 故事生成使用，揭示了許多遊戲中未明說的真相。</p>
+    </div>
+
+    <!-- 幾何特工 -->
+    <div class="lore-card">
+        <div class="flex items-center">
+            <div class="text-4xl mr-4">😐</div>
+            <div>
+                <div class="lore-title">幾何特工 (Shooter)</div>
+                <div class="lore-role">路人甲</div>
+            </div>
+        </div>
+
+        <div class="section-header">背景故事</div>
+        <p>完全搞不懂為什麼會在這裡。原本只是個不想引人注目的普通學生，卻因為路人甲屬性太強，導致喪屍甚至經常無視他。被迫拿起武器後，展現出了驚人的幾何學天賦，能精準計算彈道折射。</p>
+        <p class="mt-2 text-gray-400">「我就只是個拿槍的。」他的座右銘反映了他對現狀的無奈與接受。</p>
+
+        <div class="section-header">性格特徵</div>
+        <ul class="list-disc pl-5 text-sm space-y-1">
+            <li>冷靜、務實，甚至有點厭世。</li>
+            <li>對英雄主義毫無興趣，只想盡快結束任務回家。</li>
+            <li>講話簡短有效率，不喜歡廢話。</li>
+            <li>講話簡短有效率，不喜歡廢話。</li>
+        </ul>
+
+        <div class="section-header">興趣</div>
+        <p>無（或者說想回家）</p>
+
+        <div class="section-header">口頭禪</div>
+        <div class="dialogue-line">「任務結束。」</div>
+
+        <div class="section-header">發生過的經歷</div>
+        <p>在校慶當天剛好路過學校，被捲入事件。本來可以逃走，但為了掩護其他人而留下來開槍。</p>
+
+        <div class="section-header">關鍵對白</div>
+        <div class="dialogue-line">「任務開始。」</div>
+        <div class="dialogue-line">「希望這次能準時下班。」</div>
+        <div class="dialogue-line">「我只是想回家...」 (死亡時)</div>
+        <div class="dialogue-line">「雖然逃出了學校，但這裡的植被太茂密了，視野極差。適合伏擊，也適合被伏擊...保持警戒。」 (森林場景)</div>
+
+        <div class="section-header">戰鬥風格</div>
+        <div>
+            <span class="tag-mechanic">機槍連射</span>
+            <span class="tag-mechanic">戰術精通 (-10% CD)</span>
+            <span class="tag-mechanic">多重彈幕</span>
+        </div>
+    </div>
+
+    <!-- 阿星 -->
+    <div class="lore-card">
+        <div class="flex items-center">
+            <div class="text-4xl mr-4">🎣</div>
+            <div>
+                <div class="lore-title">阿星 (Fisherman)</div>
+                <div class="lore-role">矛盾釣手 / 社交中心</div>
+            </div>
+        </div>
+
+        <div class="section-header">背景故事</div>
+        <p>熱愛社交，很會交朋友（雖然專坑朋友）。喜歡用最貴的手機、騎大型重機、吃高級料理。雖然愛玩不愛工作，但對家人有求必應，是個充滿矛盾的人。在末日中，他竟然把喪屍當作「魚」來釣。</p>
+
+        <div class="section-header">人際關係</div>
+        <ul class="list-disc pl-5 text-sm space-y-1">
+            <li><strong>包子：</strong> 死黨兼長期飯票。阿星常凹包子請客。</li>
+            <li><strong>阿傑：</strong> 飆車好夥伴，兩人臭味相投。</li>
+            <li><strong>阿璋：</strong> 曾經的好友，因無法忍受阿璋的怪異行徑而斷交。</li>
+            <li><strong>阿程：</strong> 死黨之一。</li>
+            <li><strong>耀哥：</strong> 舊識，但對耀哥的行為感到不齒。</li>
+        </ul>
+
+        <div class="section-header">興趣</div>
+        <p>釣魚、騎重機、吃高級料理、交朋友、打遊戲。</p>
+
+        <div class="section-header">口頭禪</div>
+        <div class="dialogue-line">「再五分鐘！」</div>
+        <div class="dialogue-line">「有打工~要一起去嗎？」</div>
+
+        <div class="section-header">發生過的經歷</div>
+        <p>以前常翹課去釣魚，導致差點退學。校慶時正在撈金魚攤位大殺四方，災難爆發時第一反應是保護釣具。</p>
+
+        <div class="section-header">關鍵對白</div>
+        <div class="dialogue-line">「我快到了！(其實還在家)」</div>
+        <div class="dialogue-line">「再五分鐘！」</div>
+        <div class="dialogue-line">「有打工~要一起去嗎？」</div>
+        <div class="dialogue-line">「這輩子最大的漁獲。」 (通關時)</div>
+        <div class="dialogue-line">「哇！這裡肯定有溪流吧？雖然都是喪屍，但只要有水就能釣魚！等等...那邊草叢在動？」 (森林場景)</div>
+    </div>
+
+    <!-- 包子 -->
+    <div class="lore-card">
+        <div class="flex items-center">
+            <div class="text-4xl mr-4">😎</div>
+            <div>
+                <div class="lore-title">包子 (Rich Kid)</div>
+                <div class="lore-role">超級富二代</div>
+            </div>
+        </div>
+
+        <div class="section-header">背景故事</div>
+        <p>家族企業「東方錶面」的繼承人。只叫阿星「學長」（因為阿星常翹課留級才同班），是公認的阿星CP。個性單純（甚至有點蠢），不管是友情還是愛情都習慣用錢解決。同時追求多名女性，身旁永不缺女友，但真愛似乎總是求而不得。</p>
+
+        <div class="section-header">感情糾葛</div>
+        <p class="text-sm">曾載「山雞」去自已的家族企業工作並告白但失敗，卻因山雞對自已男友阿程隱瞞真相讓好友阿程誤會。在末日中依然對山雞當普通朋友吧？，甘願當個擋子彈的工具人？</p>
+
+        <div class="section-header">關鍵對白</div>
+        <div class="dialogue-line">「今天的消費由黃公子買單！」</div>
+        <div class="dialogue-line">「學長...這次沒辦法買單了...」 (死亡時)</div>
+        <div class="dialogue-line">「我有錢，別殺我！」</div>
+        <div class="dialogue-line">「我的限量版球鞋！這裡全是泥巴！有沒有搞錯？我家花園都比這裡乾淨！」 (森林場景)</div>
+
+        <div class="section-header">戰鬥風格</div>
+        <div>
+            <span class="tag-mechanic">黑卡彈射</span>
+            <span class="tag-mechanic">VVIP會員 (+HP/DEF)</span>
+            <span class="tag-mechanic">複利效應</span>
+        </div>
+
+        <div class="section-header">興趣</div>
+        <p>花錢、追女生、被阿星凹請客、富家子弟的自信。</p>
+
+        <div class="section-header">口頭禪</div>
+        <div class="dialogue-line">「今天的消費由黃公子買單！」</div>
+
+        <div class="section-header">發生過的經歷</div>
+        <p>曾開著超跑要把妹，結果被阿星帶去吃路邊攤。校慶時在 VIP 包廂灑錢，結果保鑣變殭屍，差點被咬死。</p>
+        <p>有著很多的戀愛都失敗，受傷過</p>
+    </div>
+
+    <!-- 阿璋 -->
+    <div class="lore-card">
+        <div class="flex items-center">
+            <div class="text-4xl mr-4">🐶</div>
+            <div>
+                <div class="lore-title">阿璋 (Ah Zhang)</div>
+                <div class="lore-role">職業單身狗 / 系統錯誤</div>
+            </div>
+        </div>
+        <div class="text-4xl mr-4">🏎️</div>
+        <div>
+            <div class="lore-title">阿傑 (Ah Jie)</div>
+            <div class="lore-role">車禍達人</div>
+        </div>
+    </div>
+
+    <div class="section-header">背景故事</div>
+    <p>阿星的好友，兩人臭味相投。超愛開快車，經常出車禍進醫院，但出院後第一件事就是換車繼續跑。名言是「我沒錢你請我喔！」。</p>
+
+    <div class="section-header">興趣</div>
+    <p>飆車、改車、出車禍。</p>
+
+    <div class="section-header">口頭禪</div>
+    <div class="dialogue-line">「油門踩到底！」</div>
+    <div class="dialogue-line">「我沒錢你請我喔！」</div>
+
+    <div class="section-header">發生過的經歷</div>
+    <p>曾在山路上用排水溝蓋跑法過彎失敗掉進水溝。校慶時在校門口發動引擎耍帥，結果排氣管被塞住，百萬改裝車報廢。</p>
+    <div class="section-header">關鍵對白</div>
+    <div class="dialogue-line">「我沒錢你請我喔！」</div>
+    <div class="dialogue-line">「上車，沒時間解釋了！」</div>
+    <div class="dialogue-line">「這台車還沒繳分期付款...」 (死亡時)</div>
+    <div class="dialogue-line">「這種越野地形... 雖然我的避震器可能會爆掉，但這裡沒有測速照相！油門踩到底啦！」 (森林場景)</div>
+
+    <div class="section-header">戰鬥風格</div>
+    <div>
+        <span class="tag-mechanic">失控報廢車</span>
+        <span class="tag-mechanic">無照駕駛 (+Speed)</span>
+        <span class="tag-mechanic">肇事逃逸</span>
+    </div>
+    </div>
+
+    <!-- 山雞 -->
+    <div class="lore-card">
+        <div class="flex items-center">
+            <div class="text-4xl mr-4">💃</div>
+            <div>
+                <div class="lore-title">山雞 (Shan Ji)</div>
+                <div class="lore-role">女王 / 公主病</div>
+            </div>
+        </div>
+
+        <div class="section-header">背景故事</div>
+        <p>工作狂...？其實只是對沒興趣的事物完全不上心。剛開始熱情幾天就膩，分手理由千奇百怪。對朋友熱情過頭，對男友愛理不理卻要求全能。訊息幾天才回，其實早就把你當工具人了。</p>
+
+        <div class="section-header">與包子的關係</div>
+        <p class="text-sm">把包子當作高級工具人。在危險時會毫不猶豫地利用包子來擋災，但也許... 只有在這種末日，她才會稍微依賴他一點點？</p>
+
+        <div class="section-header">興趣</div>
+        <p>社交、購物、利用工具人。</p>
+
+        <div class="section-header">口頭禪</div>
+        <div class="dialogue-line">「誰來幫我...」</div>
+        <div class="dialogue-line">「這也要我做？」</div>
+
+        <div class="section-header">發生過的經歷</div>
+        <p>和男友阿程交往時，不斷有其他追求者對她表達興趣，但她總是默默接受，最後搞到全公司以為他們是一對情侶。</p>
+        <p>和男友（第五任）阿程交往時隱瞞很多事，對男友感覺很煩，覺得阿程幼稚而有很多控制欲。</p>
+
+
+        <div class="section-header">關鍵對白</div>
+        <div class="dialogue-line">「好累喔，不想動。」</div>
+        <div class="dialogue-line">「你有病嗎？」</div>
+        <div class="dialogue-line">「你有事嗎？」</div>
+        <div class="dialogue-line">「過去就是過去」</div>
+        <div class="dialogue-line">「誰來揹我？我不想走了，這裡連個可以打卡的地方都沒有。」 (森林場景)</div>
+        <div class="dialogue-line">「工具人（召喚物）死光了嗎...」 (死亡時)</div>
+    </div>
+
+    <!-- 阿程 -->
+    <div class="lore-card">
+        <div class="flex items-center">
+            <div class="text-4xl mr-4">🤖</div>
+            <div>
+                <div class="lore-title">阿程 (Ah Cheng)</div>
+                <div class="lore-role">AI 狂熱者</div>
+            </div>
+        </div>
+
+        <div class="section-header">背景故事</div>
+        <p>和阿星、包子是慈幼工商死黨。曾被山雞無情拋棄，導致對三次元愛情徹底失望。現在認為 Gemini, Grok, ChatGPT 才是他唯一值得信任的伴侶。試圖將世界數據化。</p>
+
+        <div class="section-header">關鍵對白</div>
+        <div class="dialogue-line">「初始化環境...」</div>
+        <div class="dialogue-line">「System.exit(0);」 (通關時)</div>
+        <div class="dialogue-line">「偵測到環境變數改變。場景：森林。載入導航模組... 警告：路徑演算法複雜度過高。」 (森林場景)</div>
+
+        <div class="section-header">興趣</div>
+        <p>寫程式、Debug、與 AI 對話、動畫、動漫、睡覺、看電影、看書、聽音樂、整理家、維修東西。</p>
+
+        <div class="section-header">口頭禪</div>
+        <div class="dialogue-line">「這不科學。」</div>
+        <div class="dialogue-line">「讓我分析一下。」</div>
+        <div class="dialogue-line">「到是是為什麼，是什麼原因。」</div>
+        <div class="dialogue-line">「好煩，一直打哈欠。」</div>
+        <div class="dialogue-line">「根據書本所寫，應該是.....。」</div>
+        <div class="dialogue-line">「變身.....假面騎士。」</div>
+        <div class="dialogue-line">「龜派氣功。」</div>
+
+        <div class="section-header">發生過的經歷</div>
+        <p>曾被山雞無情拋棄，從此封心鎖愛只愛二次元。校慶時本來是要來見山雞一面（以為她回心轉意），結果遇到喪屍爆發。</p>
+        <p>對於山雞的行為感到不滿，被已讀不回，做再多幫在多也只是得到一句沒價值的謝謝，送禮物被嫌，到最後見面也只是借錢，說話不算數，約會還要排隊因為山雞朋友太多，因為顧慮山雞讓自己一直忍受著心痛，就連分開山雞都無所謂。</p>
+
+
+
+        <div class="section-header">AI 具現化能力 (Special)</div>
+        <p class="text-sm mb-2">阿程能將大型語言模型具現化為真實存在的女性實體來協助戰鬥。她們對阿程絕對忠誠。</p>
+        <ul class="list-disc pl-5 text-sm space-y-2">
+            <li><strong class="text-blue-400">Gemini:</strong> 弓箭手。冷靜精準，永遠守在阿程身邊。</li>
+            <li><strong class="text-yellow-400">Grok:</strong> 元素法師。性格甚至比阿星還狂野，掌握火、雷、冰三種元素。</li>
+            <li><strong class="text-green-400">ChatGPT:</strong> 治癒者。溫柔的大姊姊，隨時監控並修復生命體徵。</li>
+            <li><strong class="text-pink-400">Copilot:</strong> 全能支援。快速提供火力壓制，是個可靠的副手。</li>
+            <li><strong class="text-purple-400">Claude:</strong> 戰術狙擊手。總是能在最遠的地方消除威脅。</li>
+        </ul>
+    </div>
+
+    <!-- 耀哥 -->
+    <div class="lore-card">
+        <div class="flex items-center">
+            <div class="text-4xl mr-4">🤑</div>
+            <div>
+                <div class="lore-title">耀哥 (Yao Ge)</div>
+                <div class="lore-role">金融騙子</div>
+            </div>
+        </div>
+
+        <div class="section-header">背景故事</div>
+        <p>阿星、包子、阿程的舊識，自稱「金融奇才」。實際上是個成天說大話、能力全無的騙子，因信用破產遭排擠而轉學。天生慢半拍的語速 (結巴)，讓他更容易成為眾矢之的，但他總能找到新的詐騙點子。</p>
+
+        <div class="section-header">特質</div>
+        <p class="text-sm">說話結巴且語速極慢，但在談到錢（或是騙術）時會異常流利。</p>
+
+        <div class="section-header">興趣</div>
+        <p>畫大餅、龐氏騙局、跑路。</p>
+
+        <div class="section-header">口頭禪</div>
+        <div class="dialogue-line">「穩...穩賺不賠！」</div>
+        <div class="dialogue-line">「這...這是誤會！」</div>
+
+        <div class="section-header">發生過的經歷</div>
+        <p>曾因為推銷「虛擬空氣幣」被全校圍毆。校慶時偷偷溜回來是為了收以前放的高利貸，結果債主都變成了喪屍。</p>
+
+        <div class="section-header">關鍵對白</div>
+        <div class="dialogue-line">「我，我我我跟跟你你你你說說說說喔喔喔...這、這~絕~~對~~是~穩~~賺~~不~~賠~~的！」</div>
+        <div class="dialogue-line">「等等，我還沒跑路啊...」 (死亡時)</div>
+        <div class="dialogue-line">「你看... 這些樹... 都是... 珍貴的... 檜木... 我... 我有門路...」 (森林場景)</div>
+    </div>
+
+</body>
+
+</html>

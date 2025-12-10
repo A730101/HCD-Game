@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>孤獨倖存者：v5.3 天賦覺醒版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <div class="xp-bar-container">
+        <div class="xp-bar-fill" id="xp-bar"></div>
+    </div>
+    <div id="damage-overlay"></div>
+
+    <div id="boss-hud">
+        <div id="boss-name">BOSS NAME</div>
+        <div id="boss-hp-bar">
+            <div id="boss-hp-fill"></div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+    <div id="error-log"></div>
+
+    <div id="ui-layer">
+        <div class="hud-top">
+            <div>
+                <i class="fas fa-clock text-blue-400 mr-2"></i><span id="timer">00:00</span>
+                <i class="fas fa-volume-up text-gray-400 ml-4" id="mute-btn" onclick="SoundMgr.toggle()"></i>
+            </div>
+            <div><i class="fas fa-skull text-red-400 mr-2"></i><span id="kills">0</span></div>
+            <div><i class="fas fa-bolt text-yellow-400 mr-2"></i>LV <span id="level">1</span></div>
+        </div>
+        <div id="inventory-hud"></div>
+        <div id="speech-bubble"></div>
+        <div class="player-hp-container" id="player-hp-container">
+            <div class="player-hp-fill" id="player-hp-fill"></div>
+            <div class="player-hp-text"><span id="player-hp-text">100/100</span></div>
+        </div>
+        <div id="joystick-zone">
+            <div id="joystick-knob"></div>
+        </div>
+    </div>
+
+    <!-- Story Screen -->
+    <div id="story-screen" class="modal" style="display: flex;">
+        <div class="modal-content" style="max-width: 600px; text-align: left;">
+            <div class="story-title">⚠️ 突發警報 ⚠️</div>
+            <div id="story-text">
+                <p class="mb-2">西元 202X 年，慈幼工商千年校慶...</p>
+                <p class="mb-2"><span style="color: #ffaa00;">總統親自出席並強力推薦</span></p>
+                <p class="mb-2">慈幼工商的鐘聲如往常般響起，但這次伴隨的不是下課的歡笑，而是令人毛骨悚然的嘶吼聲。</p>
+                <p class="mb-2">不明病毒瞬間在校園爆發，參觀人變成了嗜血的怪物，所有人都變成了狂暴的喪屍。</p>
+                <p class="mb-2">為了生存，一群性格迥異的倖存者被迫拿起武器。</p>
+                <p class="mb-4 text-yellow-400 font-bold">目標只有一個：活下去，直到.....或救援來到！</p>
+            </div>
+            <button class="btn btn-green" onclick="showCharSelect()">進入選角</button>
+        </div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="modal">
+        <div class="modal-content">
+            <h1 class="font-bold text-white mb-2">選擇你的倖存者</h1>
+            <div class="text-sm text-gray-400 mb-4">裝備欄上限: 8 格，慎選你的流派！</div>
+
+            <div class="char-grid">
+                <!-- Shooter -->
+                <div class="char-card selected" onclick="selectChar('shooter', this)">
+                    <div class="char-icon">🔫</div>
+                    <div class="char-name">幾何特工 <span class="text-sm text-blue-400">♂</span></div>
+                    <span class="char-role text-blue-300">路人甲</span>
+                    <div class="char-desc">
+                        完全搞不懂為什麼會在這裡。<br>
+                        「我就只是個拿槍的。」
+                    </div>
+                    <div class="char-mechanic">✦ 機槍連射</div>
+                    <div class="char-innate">【戰術精通】冷卻時間 -10%</div>
+                </div>
+
+                <!-- Fisherman -->
+                <div class="char-card" onclick="selectChar('fisherman', this)">
+                    <div class="char-icon">🎣</div>
+                    <div class="char-name">阿星 <span class="text-sm text-blue-400">♂</span></div>
+                    <span class="char-role text-cyan-300">矛盾釣手</span>
+                    <div class="char-desc">
+                        熱愛社交，很會交朋友（雖然專坑朋友）。喜歡用最貴的手機、騎大型重機、吃高級料理。愛玩不愛工作，對家人有求必應。
+                    </div>
+                    <div class="char-mechanic">✦ 迴旋魚鉤</div>
+                    <div class="char-innate">【天才小釣手】拾取範圍 +50%</div>
+                </div>
+
+                <!-- Rich Kid -->
+                <div class="char-card rich-style" onclick="selectChar('richkid', this)">
+                    <div class="char-icon">😎</div>
+                    <div class="char-name">包子 <span class="text-sm text-blue-400">♂</span></div>
+                    <span class="char-role text-yellow-300">超級富二代</span>
+                    <div class="char-desc">
+                        只叫阿星學長（因阿星常翹課留級才同班），常被凹請客，公認的阿星CP。曾載山雞去家族企業「東方錶面」工作並告白，卻被隱瞞真相且追求失敗。同時追求多女，身旁永不缺女友。
+                    </div>
+                    <div class="char-mechanic">✦ 黑卡彈射</div>
+                    <div class="char-innate">【VVIP會員】+20HP / +1防禦</div>
+                </div>
+
+                <!-- Ah Zhang -->
+                <div class="char-card dog-style selected" onclick="selectChar('ahzhang', this)">
+                    <div class="char-icon">🐶</div>
+                    <div class="char-name">阿璋 <span class="text-sm text-blue-400">♂</span></div>
+                    <span class="char-role text-gray-400">職業單身狗</span>
+                    <div class="char-desc">
+                        休假獨自到處跑，FB全是自拍。曾是阿星好友，因無法溝通而斷交。阿星爆料他有病拒藥，但他自認沒病。是個隨時會做出不合理行為的未爆彈。
+                    </div>
+                    <div class="char-mechanic">✦ 廢文風暴</div>
+                    <div class="char-innate">【單身結界】反彈傷害 10點</div>
+                </div>
+
+                <!-- Ah Jie -->
+                <div class="char-card car-style" onclick="selectChar('ahjie', this)">
+                    <div class="char-icon">🏎️</div>
+                    <div class="char-name">阿傑 <span class="text-sm text-blue-400">♂</span></div>
+                    <span class="char-role text-red-400">車禍達人</span>
+                    <div class="char-desc">
+                        阿星的好友，兩人同類相吸，是阿星出遊必約的死黨。<br>
+                        超愛開快車，經常出車禍進醫院，但換車又跑。<br>
+                        「我沒錢你請我喔！」
+                    </div>
+                    <div class="char-mechanic text-red-300">✦ 失控報廢車</div>
+                    <div class="char-innate">【無照駕駛】移動速度 +20%</div>
+                </div>
+
+                <!-- Shan Ji -->
+                <div class="char-card pink-style" onclick="selectChar('shanji', this)">
+                    <div class="char-icon">💃</div>
+                    <div class="char-name">山雞 <span class="text-sm text-pink-400">♀</span></div>
+                    <span class="char-role text-pink-400">工作狂？？</span>
+                    <div class="char-desc">
+                        剛開始熱情幾天就膩，分手理由千奇百怪。對朋友熱情過頭，對男友愛理不理卻要求全能。訊息幾天才回，其實早就不把你當男友了。
+                    </div>
+                    <div class="char-mechanic text-pink-300">✦ 工具人軍團</div>
+                    <div class="char-innate">【公主待遇】自動回血 (3HP/5s)</div>
+                </div>
+
+                <!-- Ah Cheng -->
+                <div class="char-card ai-style" onclick="selectChar('ahcheng', this)">
+                    <div class="char-icon">🤖</div>
+                    <div class="char-name">阿程 <span class="text-sm text-blue-400">♂</span></div>
+                    <span class="char-role text-green-400">AI和我</span>
+                    <div class="char-desc">
+                        和阿星、包子是慈幼工商死黨。<br>
+                        曾被山雞無情拋棄，對三次元愛情徹底失望。<br>
+                        現在 GEMINI、GROK、CHATGPT 是他最好的伴侶。
+                    </div>
+                    <div class="char-mechanic text-green-300">✦ 二進位洪流</div>
+                    <div class="char-innate">【系統優化】傷害/經驗 +10%</div>
+                </div>
+
+                <!-- Yao Ge -->
+                <div class="char-card scam-style" onclick="selectChar('yaoge', this)">
+                    <div class="char-icon">🤑</div>
+                    <div class="char-name">耀哥 <span class="text-sm text-blue-400">♂</span></div>
+                    <span class="char-role text-purple-400">詐騙集團</span>
+                    <div class="char-desc">
+                        阿星、包子、阿程的舊識，號稱「金融奇才」。<br>
+                        實際上是個成天說大話、能力全無的騙子，因信用破產遭排擠而轉學。<br>
+                        天生慢半拍的語速，讓他更容易成為眾矢之的。<br>
+                        「我，我我我跟跟你你你你說說說說喔喔喔...這、這~絕~~對~~是~穩~~賺~~不~~賠~~的！」
+                    </div>
+                    <div class="char-mechanic text-purple-300">✦ 龐氏騙局炸彈</div>
+                    <div class="char-innate">【龐氏紅利】經驗值 +25%</div>
+                </div>
+            </div>
+
+            <button class="btn btn-green" onclick="startGame()">開始遊戲</button>
+        </div>
+    </div>
+
+    <!-- Level Up Screen -->
+    <div id="upgrade-screen" class="modal">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold text-yellow-400 mb-2">能力升級！</h2>
+            <div class="text-sm text-gray-400 mb-4" id="inventory-status">裝備欄: 0/8</div>
+            <div class="upgrade-container" id="upgrade-list"></div>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over-screen" class="modal">
+        <div class="modal-content">
+            <h1 class="text-red-500 mb-2">你掛了</h1>
+            <p class="text-white text-lg">角色: <span id="final-char" class="text-yellow-300"></span></p>
+            <p id="death-quote" class="text-gray-400 text-sm italic mb-4">...</p>
+            <p class="text-white text-lg">存活時間: <span id="final-time" class="text-blue-400">00:00</span></p>
+            <p class="text-white text-lg mb-6">擊殺數: <span id="final-kills" class="text-red-400">0</span></p>
+            <button class="btn" onclick="location.reload()">重新挑戰</button>
+        </div>
+    </div>
+
+    <!-- Stage Transition Screen -->
+    <div id="stage-transition-screen" class="modal">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold text-green-400 mb-4">關卡完成！</h2>
+            <p id="stage-story-text" class="text-white text-md mb-6"></p>
+            <div id="stage-btn-container" class="w-full flex flex-col gap-2">
+                <button class="btn btn-green" onclick="continueToNextStage()">進入森林</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/game.js"></script>
+</body>
+
+</html>
