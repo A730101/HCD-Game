@@ -78,7 +78,7 @@ let lastTime = 0;
 
 const state = {
     running: false, paused: false, kills: 0, level: 1, xp: 0, xpToNextLevel: 10,
-    gameTime: 0, selectedChar: 'ahzhang', selectedStage: 1, bossActive: false, bossObj: null, lastDialogTime: 0,
+    gameTime: 0, selectedChar: 'fisherman', selectedStage: 1, bossActive: false, bossObj: null, lastDialogTime: 0,
     stage: 1, stage1Cleared: false, stageStartTime: 0, companions: [],
     camera: { x: 0, y: 0 },
     map: { width: 0, height: 0 },
@@ -1064,6 +1064,10 @@ function updatePlayerHpUi() {
 }
 
 function selectChar(type, el) {
+    // Only allow selecting fisherman (阿星)
+    if (type !== 'fisherman') {
+        return; // Ignore clicks on disabled characters
+    }
     state.selectedChar = type;
     document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');

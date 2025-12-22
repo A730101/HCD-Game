@@ -85,6 +85,13 @@ canvas { display: block; }
 }
 .char-card:hover { border-color: #60a5fa; transform: translateY(-3px); }
 .char-card.selected { border-color: #fbbf24; background: #4b5563; box-shadow: 0 0 15px rgba(251, 191, 36, 0.3); }
+.char-card.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    filter: grayscale(100%);
+    pointer-events: none;
+}
+.char-card.disabled:hover { border-color: #4b5563; transform: none; }
 
 .char-card.rich-style.selected { border-color: #ffd700; background: linear-gradient(135deg, #4b5563, #383418); }
 .char-card.dog-style.selected { border-color: #a3a3a3; background: linear-gradient(135deg, #4b5563, #3f3f46); border-style: dashed;}
