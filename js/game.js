@@ -2652,6 +2652,55 @@ function updateJoystick(cx, cy) {
     joystickVector.x = (dx / dist) * Math.min(1, dist / 60); joystickVector.y = (dy / dist) * Math.min(1, dist / 60);
 }
 
+// ATTACK BUTTON (Mobile)
+const attackButton = document.getElementById('attack-button');
+if (attackButton) {
+    let attackTouchId = null;
+    let isAttacking = false;
+
+    attackButton.addEventListener('touchstart', e => {
+        e.preventDefault();
+        if (!state.running || state.paused) return;
+        const touch = e.changedTouches[0];
+        attackTouchId = touch.identifier;
+        isAttacking = true;
+
+        // Force fire weapon immediately
+        let target = null;
+        let minDist = Infinity;
+        for (const e of enemies) {
+            if (e.dead || !e) continue;
+            const dist = Math.hypot(e.x - player.x, e.y - player.y);
+            if (dist < player.weapon.range && dist < minDist) {
+                minDist = dist;
+                target = e;
+            }
+        }
+        if (target) {
+            fireWeapon(target);
+            player.weapon.lastShot = 0;
+        }
+    }, { passive: false });
+
+    attackButton.addEventListener('touchend', e => {
+        for (let t of e.changedTouches) {
+            if (t.identifier === attackTouchId) {
+                isAttacking = false;
+                attackTouchId = null;
+            }
+        }
+    });
+
+    attackButton.addEventListener('touchcancel', e => {
+        for (let t of e.changedTouches) {
+            if (t.identifier === attackTouchId) {
+                isAttacking = false;
+                attackTouchId = null;
+            }
+        }
+    });
+}
+
 // MOUSE INPUT
 let mouseX = 0, mouseY = 0;
 let lastClickTime = 0;
@@ -2665,3 +2714,18 @@ window.addEventListener('mousedown', () => {
     if (Date.now() - lastClickTime < 300) return; // Debounce
     lastClickTime = Date.now();
 });
+
+// Prevent canvas touch scrolling and zooming
+canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+canvas.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+canvas.addEventListener('touchend', e => e.preventDefault(), { passive: false });
+
+// Prevent double-tap zoom
+let lastTouchEnd = 0;
+document.addEventListener('touchend', e => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) {
+        e.preventDefault();
+    }
+    lastTouchEnd = now;
+}, false);
