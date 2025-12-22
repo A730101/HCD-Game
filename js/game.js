@@ -204,15 +204,14 @@ function selectStage(stageId) {
     showIntroStory();
 }
 
-// Modify selectChar to go to Stage Select
+// Modify selectChar to start game directly on Chapter 1
 function selectChar(charId) {
     state.selectedChar = charId;
 
-    // Highlight selection (optional visual feedback)
-    document.querySelectorAll('.char-card').forEach(el => el.classList.remove('ring-4', 'ring-blue-500'));
-    // We don't have direct ref to element here easily without event, but that's fine.
-
-    showStageSelection();
+    // Start game directly on Chapter 1
+    state.selectedStage = 1;
+    state.stage = 1;
+    showIntroStory();
 }
 // --- TRIGGER DIALOG FUNCTION ---
 function triggerDialog(type) {
@@ -777,10 +776,27 @@ function markEnemyDead(e) {
         state.bossActive = false;
         state.bossObj = null;
 
-        // Trigger Victory Line if it was Big Boss
-        if (e.type === 'bigBoss') {
+        // Check if it's the final boss of each chapter
+        const isFinalBoss = (
+            (state.stage === 1 && e.type === 'principal') ||
+            (state.stage === 2 && e.type === 'guardian') ||
+            (state.stage === 3 && e.type === 'director')
+        );
+
+        if (isFinalBoss) {
+            // Show victory dialog
             const lines = charConfigs[state.selectedChar].dialogs;
-            if (lines && lines.final) showDialog(lines.final, 5000);
+            if (lines && lines.final) showDialog(lines.final, 3000);
+
+            // Trigger chapter transition after a delay
+            setTimeout(() => {
+                if (state.stage < 3) {
+                    showStageTransition();
+                } else {
+                    // Chapter 3 complete - show ending choices
+                    showEndingChoice();
+                }
+            }, 3000);
         }
 
         newEntitiesQueue.push({ cat: 'gem', obj: { x: e.x, y: e.y, radius: 10, color: '#fbbf24', val: 500, dead: false } });
@@ -972,21 +988,17 @@ function showStageTransition() {
     const screen = document.getElementById('stage-transition-screen');
     screen.style.display = 'flex';
 
-    // Set Header to "关卡完成！"
     const header = screen.querySelector('h2');
     if (header) header.textContent = "關卡完成！";
 
-    // Special logic for Shan Ji
-    if (state.selectedChar === 'shanji') {
-        storyText.innerText = "森林入口處，妳看見一個熟悉的富二代身影狼狽地卡在樹叢裡...\n\n包子：『學姐！！救我！！我會聽話的！！』\n妳可以選擇讓他當跟班，雖然他沒什麼戰力，但至少能擋個子彈？";
-        btnContainer.innerHTML = `
-            <button class="btn btn-green" onclick="continueToNextStage(true)">勉強讓他跟（獲得包子跟班）</button>
-            <button class="btn" onclick="continueToNextStage(false)">自己走（無視他）</button>
-        `;
-    } else {
-        storyText.textContent = config.forestStory;
-        btnContainer.innerHTML = `<button class="btn btn-green" onclick="continueToNextStage(false)">進入森林</button>`;
-    }
+    // Get story text based on current stage
+    const storyIndex = (state.stage === 1) ? 3 : 6; // Index 3 for stage 1->2, index 6 for stage 2->3
+    const storyLine = config.forestStory[storyIndex] || "準備進入下一章...";
+
+    storyText.innerHTML = storyLine.replace(/\n/g, '<br>');
+
+    const nextStageName = state.stage === 1 ? "第二章：迷霧森林" : "第三章：錶面之下";
+    btnContainer.innerHTML = `<button class="btn btn-green" onclick="continueToNextStage()">進入${nextStageName}</button>`;
 
     // Clear entities
     enemies = [];
@@ -1003,18 +1015,87 @@ function initCompanion(type) {
     spawnCompanion(type);
 }
 
+function showEndingChoice() {
+    state.paused = true;
+    const config = charConfigs[state.selectedChar];
+    const storyText = document.getElementById('stage-story-text');
+    const btnContainer = document.getElementById('stage-btn-container');
 
-function continueToNextStage(withCompanion) {
-    document.getElementById('stage-transition-screen').style.display = 'none';
+    const screen = document.getElementById('stage-transition-screen');
+    screen.style.display = 'flex';
 
+    const header = screen.querySelector('h2');
+    if (header) header.textContent = "抉擇時刻";
+
+    // Get the ending choice story (index 10 in forestStory)
+    const choiceStory = config.forestStory[10];
+    if (choiceStory && choiceStory.text) {
+        storyText.innerHTML = choiceStory.text.replace(/\n/g, '<br>');
+
+        // Create buttons for choices
+        btnContainer.innerHTML = '';
+        if (choiceStory.choices) {
+            choiceStory.choices.forEach((choice, idx) => {
+                const btn = document.createElement('button');
+                btn.className = idx === 0 ? 'btn btn-green' : 'btn';
+                btn.textContent = choice.text;
+                btn.onclick = () => triggerEnding(choice.action);
+                btnContainer.appendChild(btn);
+            });
+        }
+    } else {
+        // Fallback if no ending choice defined
+        storyText.innerHTML = "你成功活了下來...";
+        btnContainer.innerHTML = `<button class="btn btn-green" onclick="location.reload()">重新開始</button>`;
+    }
+}
+
+function triggerEnding(endingType) {
+    // Show ending based on choice
+    const storyText = document.getElementById('stage-story-text');
+    const btnContainer = document.getElementById('stage-btn-container');
+    const header = document.querySelector('#stage-transition-screen h2');
+
+    if (header) header.textContent = "結局";
+
+    let endingText = "";
+    let endingTitle = "";
+
+    switch(endingType) {
+        case 'ending_destroy':
+            endingTitle = "必要之惡";
+            endingText = "工廠在巨大的爆炸中化為灰燼。\n\n你看著遠處的火光，耀哥的身影消失在火海中。\n\n病毒被徹底消滅了，但所有感染者也都....\n\n「有些代價，必須有人付出。」";
+            break;
+        case 'ending_cure':
+            endingTitle = "新的開始";
+            endingText = "你帶著病毒樣本逃出工廠。\n\n耀哥口中的科學家成功研發出解藥。\n\n三個月後，校園逐漸恢復生機。\n\n你和朋友們在重建的釣魚池旁烤肉。\n\n「本來約好的烤肉，總算能吃了...雖然遲了點。」";
+            break;
+        case 'ending_escape':
+            endingTitle = "流浪者";
+            endingText = "你推開耀哥，帶著樣本獨自逃離。\n\n身後傳來他絕望的吼聲。\n\n你騎著阿傑的改裝車，一路向西。\n\n「真相太沉重...不如一路向西，釣遍所有的河。」";
+            break;
+        default:
+            endingTitle = "存活";
+            endingText = "你活下來了。";
+    }
+
+    storyText.innerHTML = `<div style="font-size: 1.5rem; color: #fbbf24; margin-bottom: 1rem;">${endingTitle}</div>${endingText.replace(/\n/g, '<br>')}`;
+    btnContainer.innerHTML = `<button class="btn btn-green" onclick="location.reload()">重新開始</button>`;
+}
+
+function continueToNextStage() {
     // 1. Advance Stage
-    state.stage = 2;
+    state.stage++;
     state.stageStartTime = state.gameTime;
-    state.paused = false;
 
-    // 2. Reset Player Position
-    player.x = width / 2;
-    player.y = height / 2;
+    // 2. Reset Player Position and Map
+    const stageConfig = STAGE_CONFIGS[state.stage] || STAGE_CONFIGS[1];
+    state.map.width = stageConfig.mapWidth || width;
+    state.map.height = stageConfig.mapHeight || height;
+    state.walls = JSON.parse(JSON.stringify(stageConfig.walls || []));
+
+    player.x = state.map.width / 2;
+    player.y = state.map.height / 2;
 
     // 3. Reset Spawn Flags
     midBossSpawned = false;
@@ -1063,10 +1144,8 @@ function continueToNextStage(withCompanion) {
     updatePlayerHpUi();
     updateInventoryUI();
 
-    // 6. Add Companion if selected
-    if (withCompanion) {
-        initCompanion('richkid');
-    }
+    // 6. Show intro story for new chapter
+    showIntroStory();
 }
 
 
@@ -1215,11 +1294,21 @@ function showIntroStory() {
     const screen = document.getElementById('stage-transition-screen');
     screen.style.display = 'flex';
 
-    // Set Header to "Story"
+    // Set Header based on chapter
     const header = screen.querySelector('h2');
-    if (header) header.textContent = "故事";
+    const chapterTitles = ["第一章：校園浩劫", "第二章：迷霧森林", "第三章：錶面之下"];
+    if (header) header.textContent = chapterTitles[state.stage - 1] || "故事";
 
-    state.storyPage = 0;
+    // Set story page based on current stage
+    // Stage 1: index 0, Stage 2: index 4, Stage 3: index 7
+    if (state.stage === 1) {
+        state.storyPage = 0;
+    } else if (state.stage === 2) {
+        state.storyPage = 4;
+    } else if (state.stage === 3) {
+        state.storyPage = 7;
+    }
+
     renderStoryPage();
 }
 
