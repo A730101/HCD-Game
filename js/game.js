@@ -87,7 +87,7 @@ const state = {
 
 const STAGE_CONFIGS = {
     1: { name: '慈幼工商 (校園)', mapWidth: 0, mapHeight: 0, walls: [] }, // 0 means use screen size
-    3: {
+    2: {
         name: '迷霧森林 (迷宮)',
         mapWidth: 2400,
         mapHeight: 2400,
@@ -104,6 +104,29 @@ const STAGE_CONFIGS = {
             { x: 400, y: 1400, w: 800, h: 200 },
             { x: 1400, y: 1400, w: 600, h: 200 },
             { x: 1000, y: 800, w: 400, h: 400 } // Central Block
+        ]
+    },
+    3: {
+        name: '東方錶面工廠 (終章)',
+        mapWidth: 2800,
+        mapHeight: 2800,
+        walls: [
+            // Outer Walls
+            { x: -50, y: -50, w: 2900, h: 50 },
+            { x: -50, y: 2800, w: 2900, h: 50 },
+            { x: -50, y: 0, w: 50, h: 2800 },
+            { x: 2800, y: 0, w: 50, h: 2800 },
+            // Factory Rooms and Corridors
+            { x: 300, y: 300, w: 400, h: 100 }, // Top-left room wall
+            { x: 300, y: 600, w: 100, h: 400 },
+            { x: 1000, y: 300, w: 100, h: 600 },
+            { x: 1400, y: 500, w: 600, h: 100 },
+            { x: 2000, y: 800, w: 100, h: 800 },
+            { x: 500, y: 1500, w: 800, h: 100 },
+            { x: 1600, y: 1800, w: 400, h: 400 },
+            { x: 800, y: 2100, w: 600, h: 100 },
+            // Central Factory Core
+            { x: 1200, y: 1200, w: 400, h: 400 }
         ]
     }
 };
@@ -1473,12 +1496,25 @@ function updateCamera(dt) {
 function handleSpawns(dt) {
     if (enemies.length >= MAX_ENEMIES) return; // Cap
 
-    if (!midBossSpawned && state.gameTime > 60 && state.stage === 1) { spawnBoss('mid'); midBossSpawned = true; }
-    if (!bigBossSpawned && state.gameTime > 180 && state.stage === 1) { spawnBoss('big'); bigBossSpawned = true; }
+    // Stage 1: School Campus
+    if (state.stage === 1) {
+        if (!midBossSpawned && state.gameTime > 60) { spawnBoss('mid'); midBossSpawned = true; }
+        if (!bigBossSpawned && state.gameTime > 180) { spawnBoss('big'); bigBossSpawned = true; }
+    }
 
-    // Stage 2 Bosses (Simple logic: spawn bosses again later in stage 2)
-    if (!midBossSpawned && state.stage === 2 && (state.gameTime - state.stageStartTime) > 60) { spawnBoss('mid'); midBossSpawned = true; }
-    if (!bigBossSpawned && state.stage === 2 && (state.gameTime - state.stageStartTime) > 180) { spawnBoss('big'); bigBossSpawned = true; }
+    // Stage 2: Misty Forest
+    if (state.stage === 2) {
+        if (!midBossSpawned && (state.gameTime - state.stageStartTime) > 60) { spawnBoss('mid'); midBossSpawned = true; }
+        if (!bigBossSpawned && (state.gameTime - state.stageStartTime) > 180) { spawnBoss('big'); bigBossSpawned = true; }
+    }
+
+    // Stage 3: Factory
+    if (state.stage === 3) {
+        if (!midBossSpawned && (state.gameTime - state.stageStartTime) > 60) { spawnBoss('mid'); midBossSpawned = true; }
+        // Yaoge boss at 2 minutes (optional, based on player choice)
+        // For now, we'll skip yaoge and go straight to final boss
+        if (!bigBossSpawned && (state.gameTime - state.stageStartTime) > 180) { spawnBoss('big'); bigBossSpawned = true; }
+    }
 
     // Calculate difficulty time
     let difficultyTime = state.gameTime;
@@ -1502,8 +1538,6 @@ function spawnEnemyLogic() {
     const camY = state.camera.y;
     const camW = width;
     const camH = height;
-    const mapW = state.map.width || width;
-    const mapH = state.map.height || height;
 
     const side = Math.floor(Math.random() * 4);
     let ex, ey;
@@ -1517,16 +1551,6 @@ function spawnEnemyLogic() {
         case 3: ex = camX - buffer; ey = camY + Math.random() * camH; break; // Left
     }
 
-    // Clamp to World Bounds (if strictly required, or let them spawn outside?)
-    // If we clamp, they might spawn ON SCREEN if we are at edge.
-    // Let's allow them to spawn slightly outside map if needed?
-    // Or just clamp and accept they might appear visible? 
-    // Let's clamp to be safe for physics, but maybe 100px padding?
-    // Actually, update loop might kill them if too far? No current logic kills for distance.
-
-    // Simplest: Check if inside wall?
-    // Let's just spawn.
-
     const scale = 1 + (state.gameTime / 100);
     const r = Math.random();
 
@@ -1536,12 +1560,39 @@ function spawnEnemyLogic() {
     let color = '#ef4444';
     let radius = 12;
 
-    if (state.gameTime > 30 && r > 0.8) { type = 'jumper'; color = '#facc15'; speed = 40; hp = 60 * scale; }
-    else if (state.gameTime > 90 && r > 0.85) { type = 'kamikaze'; color = '#f97316'; speed = 120; hp = 40 * scale; }
-    else if (state.gameTime > 120 && r > 0.9) {
-        type = 'splitter'; color = '#22c55e'; speed = 45; hp = 150 * scale; radius = 16;
-        if (Math.random() < 0.3) {
-            // Elite?
+    // Stage-specific enemy types
+    if (state.stage === 1) {
+        // Chapter 1: School Campus
+        if (state.gameTime > 30 && r > 0.75) {
+            type = 'teacher'; color = '#7f1d1d'; speed = 50; hp = 150 * scale; radius = 14; // Teacher Zombie
+        } else if (state.gameTime > 60 && r > 0.85) {
+            type = 'athlete'; color = '#facc15'; speed = 120; hp = 60 * scale; // Athlete Zombie (fast)
+        } else if (state.gameTime > 90 && r > 0.9) {
+            type = 'club'; color = '#f97316'; speed = 150; hp = 40 * scale; // Club Zombie (kamikaze)
+        } else {
+            type = 'student'; color = '#ef4444'; speed = 70; hp = 90 * scale; // Student Zombie
+        }
+    } else if (state.stage === 2) {
+        // Chapter 2: Misty Forest
+        if (state.gameTime > 30 && r > 0.7) {
+            type = 'spore'; color = '#22c55e'; speed = 40; hp = 200 * scale; radius = 16; // Spore Walker (splitter)
+        } else if (state.gameTime > 60 && r > 0.8) {
+            type = 'mosquito'; color = '#06b6d4'; speed = 140; hp = 30 * scale; radius = 8; // Giant Mosquito
+        } else if (state.gameTime > 45 && r > 0.85) {
+            type = 'dog'; color = '#92400e'; speed = 100; hp = 80 * scale; // Mutant Dog
+        } else {
+            type = 'hiker'; color = '#15803d'; speed = 65; hp = 100 * scale; // Infected Hiker
+        }
+    } else if (state.stage === 3) {
+        // Chapter 3: Factory
+        if (state.gameTime > 30 && r > 0.75) {
+            type = 'security'; color = '#1f2937'; speed = 55; hp = 180 * scale; radius = 14; // Security Zombie (armored)
+        } else if (state.gameTime > 60 && r > 0.85) {
+            type = 'experiment'; color = '#f0fdf4'; speed = 160; hp = 50 * scale; // Test Subject (fast kamikaze)
+        } else if (state.gameTime > 90 && r > 0.9) {
+            type = 'mutant'; color = '#10b981'; speed = 90; hp = 140 * scale; // Mass-Produced Mutant
+        } else {
+            type = 'worker'; color = '#6b7280'; speed = 70; hp = 110 * scale; // Worker Zombie
         }
     }
 
@@ -1557,7 +1608,7 @@ function spawnBoss(tier) {
     // Spawn above player relative to world
     let boss = {
         id: Math.random(), isBoss: true, x: player.x, y: player.y - 500,
-        pushX: 0, pushY: 0, flashTimer: 0, state: 'move', dead: false
+        pushX: 0, pushY: 0, flashTimer: 0, state: 'move', dead: false, summonTimer: 0, phase: 1
     };
 
     // Ensure within map bounds Y (don't spawn in void if at top)
@@ -1566,13 +1617,78 @@ function spawnBoss(tier) {
     // Trigger Boss Dialog
     triggerDialog('boss');
 
-    if (tier === 'mid') {
-        boss.type = 'midBoss'; boss.bossName = '巨型坦克'; boss.radius = 35; boss.color = '#7f1d1d';
-        boss.hp = 5000; boss.maxHp = 5000; boss.speed = 50;
-    } else {
-        boss.type = 'bigBoss'; boss.bossName = '深淵巨口'; boss.radius = 60; boss.color = '#4c1d95';
-        boss.hp = 25000; boss.maxHp = 25000; boss.speed = 30; boss.summonTimer = 0;
+    // Stage-specific bosses
+    if (state.stage === 1) {
+        // Chapter 1: School Campus
+        if (tier === 'mid') {
+            boss.type = 'disciplineMaster';
+            boss.bossName = '訓導主任';
+            boss.radius = 35;
+            boss.color = '#7f1d1d';
+            boss.hp = 5000;
+            boss.maxHp = 5000;
+            boss.speed = 50;
+        } else {
+            boss.type = 'principal';
+            boss.bossName = '變異校長';
+            boss.radius = 60;
+            boss.color = '#991b1b';
+            boss.hp = 25000;
+            boss.maxHp = 25000;
+            boss.speed = 30;
+        }
+    } else if (state.stage === 2) {
+        // Chapter 2: Misty Forest
+        if (tier === 'mid') {
+            boss.type = 'boar';
+            boss.bossName = '巨型野豬';
+            boss.radius = 40;
+            boss.color = '#92400e';
+            boss.hp = 6000;
+            boss.maxHp = 6000;
+            boss.speed = 70;
+        } else {
+            boss.type = 'guardian';
+            boss.bossName = '森林守護者';
+            boss.radius = 70;
+            boss.color = '#7c3aed';
+            boss.hp = 30000;
+            boss.maxHp = 30000;
+            boss.speed = 40;
+        }
+    } else if (state.stage === 3) {
+        // Chapter 3: Factory
+        if (tier === 'mid') {
+            boss.type = 'securityChief';
+            boss.bossName = '保全隊長';
+            boss.radius = 38;
+            boss.color = '#111827';
+            boss.hp = 7000;
+            boss.maxHp = 7000;
+            boss.speed = 55;
+        } else if (tier === 'yaoge') {
+            // Special boss: Failed Yaoge (only if player chose option C)
+            boss.type = 'yaogeBoss';
+            boss.bossName = '失控的耀哥';
+            boss.radius = 45;
+            boss.color = '#a855f7';
+            boss.hp = 10000;
+            boss.maxHp = 10000;
+            boss.speed = 80;
+            boss.teleportTimer = 0;
+        } else {
+            // Final boss: Research Director (3 phases)
+            boss.type = 'director';
+            boss.bossName = '研究主任 - 人形態';
+            boss.radius = 50;
+            boss.color = '#059669';
+            boss.hp = 40000;
+            boss.maxHp = 40000;
+            boss.speed = 60;
+            boss.regenTimer = 0;
+        }
     }
+
     state.bossObj = boss;
     enemies.push(boss);
 }
@@ -1788,19 +1904,84 @@ function updateEntities(dt) {
                 e.stateTimer -= dt; e.x += e.vx * dt; e.y += e.vy * dt;
                 if (e.stateTimer <= 0) e.state = 'move';
             }
-        } else if (e.type === 'bigBoss') {
+        } else if (e.isBoss) {
+            // Boss special behaviors
             const angle = Math.atan2(player.y - e.y, player.x - e.x);
             e.x += Math.cos(angle) * speed * dt;
             e.y += Math.sin(angle) * speed * dt;
+
+            // Phase transitions for multi-phase bosses
+            if (e.type === 'principal') {
+                // Principal: Phase 2 at 50% HP, Phase 3 at 20%
+                const hpPercent = e.hp / e.maxHp;
+                if (hpPercent <= 0.5 && e.phase === 1) {
+                    e.phase = 2;
+                    e.speed = 45; // Faster
+                    showDialog("我要讓這所學校永存！");
+                } else if (hpPercent <= 0.2 && e.phase === 2) {
+                    e.phase = 3;
+                    e.speed = 60; // Even faster
+                    showDialog("抱歉...學生們...");
+                }
+            } else if (e.type === 'guardian') {
+                // Forest Guardian: Phase changes
+                const hpPercent = e.hp / e.maxHp;
+                if (hpPercent <= 0.6 && e.phase === 1) {
+                    e.phase = 2;
+                    showDialog("外來者...必須死...");
+                } else if (hpPercent <= 0.3 && e.phase === 2) {
+                    e.phase = 3;
+                    e.speed = 80; // Berserk speed
+                }
+            } else if (e.type === 'director') {
+                // Research Director: 3-phase transformation
+                const hpPercent = e.hp / e.maxHp;
+                if (hpPercent <= 0.625 && e.phase === 1) {
+                    e.phase = 2;
+                    e.bossName = '研究主任 - 半變異';
+                    e.radius = 60;
+                    e.speed = 90;
+                    e.color = '#047857';
+                    showDialog("力量...我感受到了永生的力量！");
+                } else if (hpPercent <= 0.25 && e.phase === 2) {
+                    e.phase = 3;
+                    e.bossName = '研究主任 - 完全體';
+                    e.radius = 75;
+                    e.speed = 40;
+                    e.color = '#065f46';
+                    showDialog("這就是...神的領域！");
+                }
+                // Phase 3: Regeneration
+                if (e.phase === 3) {
+                    e.regenTimer += dt;
+                    if (e.regenTimer > 1) {
+                        e.regenTimer = 0;
+                        e.hp = Math.min(e.hp + 100, e.maxHp);
+                    }
+                }
+            } else if (e.type === 'yaogeBoss') {
+                // Yaoge: Random teleportation
+                e.teleportTimer += dt;
+                if (e.teleportTimer > 3) {
+                    e.teleportTimer = 0;
+                    e.x = player.x + (Math.random() - 0.5) * 400;
+                    e.y = player.y + (Math.random() - 0.5) * 400;
+                    createParticles(e.x, e.y, '#a855f7', 10);
+                }
+            }
+
+            // Boss summoning logic
             e.summonTimer += dt;
-            if (e.summonTimer > 5) {
+            const summonInterval = e.type === 'director' ? 4 : 6;
+            if (e.summonTimer > summonInterval) {
                 e.summonTimer = 0;
-                for (let k = 0; k < 3; k++) {
+                const summonCount = e.phase === 3 ? 5 : 3;
+                for (let k = 0; k < summonCount; k++) {
                     newEntitiesQueue.push({
                         cat: 'enemy', obj: {
                             id: Math.random(), type: 'basic',
-                            x: e.x + (Math.random() - 0.5) * 50, y: e.y + (Math.random() - 0.5) * 50,
-                            radius: 10, color: '#ef4444', speed: 80, hp: 50, maxHp: 50, pushX: 0, pushY: 0, flashTimer: 0, dead: false
+                            x: e.x + (Math.random() - 0.5) * 80, y: e.y + (Math.random() - 0.5) * 80,
+                            radius: 10, color: e.color, speed: 80, hp: 60, maxHp: 60, pushX: 0, pushY: 0, flashTimer: 0, dead: false, state: 'move', stateTimer: 0
                         }
                     });
                 }
