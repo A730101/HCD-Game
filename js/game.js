@@ -86,7 +86,38 @@ const state = {
 };
 
 const STAGE_CONFIGS = {
-    1: { name: '慈幼工商 (校園)', mapWidth: 0, mapHeight: 0, walls: [] }, // 0 means use screen size
+    1: {
+        name: '慈幼工商 (校園)',
+        mapWidth: 2000,
+        mapHeight: 2000,
+        walls: [
+            // Outer Walls
+            { x: -50, y: -50, w: 2100, h: 50 }, // Top
+            { x: -50, y: 2000, w: 2100, h: 50 }, // Bottom
+            { x: -50, y: 0, w: 50, h: 2000 }, // Left
+            { x: 2000, y: 0, w: 50, h: 2000 }, // Right
+
+            // School Buildings
+            // Main Building (Top-left)
+            { x: 200, y: 200, w: 600, h: 300 },
+            { x: 200, y: 500, w: 100, h: 200 }, // Left wing
+            { x: 700, y: 500, w: 100, h: 200 }, // Right wing
+
+            // Classroom Building (Top-right)
+            { x: 1200, y: 200, w: 500, h: 400 },
+
+            // Cafeteria (Bottom-left)
+            { x: 200, y: 1400, w: 400, h: 300 },
+
+            // Gym (Bottom-right)
+            { x: 1400, y: 1400, w: 400, h: 400 },
+
+            // Courtyard obstacles
+            { x: 900, y: 800, w: 200, h: 200 }, // Central fountain
+            { x: 500, y: 900, w: 150, h: 100 }, // Benches
+            { x: 1300, y: 900, w: 150, h: 100 }
+        ]
+    },
     2: {
         name: '迷霧森林 (迷宮)',
         mapWidth: 2400,
@@ -97,13 +128,23 @@ const STAGE_CONFIGS = {
             { x: -50, y: 2400, w: 2500, h: 50 }, // Bottom
             { x: -50, y: 0, w: 50, h: 2400 }, // Left
             { x: 2400, y: 0, w: 50, h: 2400 }, // Right
-            // Maze Blocks (Simple Layout)
-            { x: 400, y: 400, w: 200, h: 600 },
-            { x: 800, y: 200, w: 600, h: 200 },
-            { x: 1600, y: 400, w: 200, h: 800 },
-            { x: 400, y: 1400, w: 800, h: 200 },
-            { x: 1400, y: 1400, w: 600, h: 200 },
-            { x: 1000, y: 800, w: 400, h: 400 } // Central Block
+
+            // Dense Forest Maze
+            { x: 300, y: 300, w: 150, h: 600 },
+            { x: 600, y: 200, w: 150, h: 400 },
+            { x: 900, y: 400, w: 150, h: 700 },
+            { x: 1200, y: 200, w: 150, h: 500 },
+            { x: 1500, y: 500, w: 150, h: 600 },
+            { x: 1800, y: 300, w: 150, h: 800 },
+
+            { x: 400, y: 1200, w: 600, h: 150 },
+            { x: 1100, y: 1400, w: 600, h: 150 },
+            { x: 600, y: 1700, w: 500, h: 150 },
+            { x: 1400, y: 1800, w: 400, h: 150 },
+
+            // Central clearing
+            { x: 1000, y: 900, w: 400, h: 100 },
+            { x: 1000, y: 1200, w: 400, h: 100 }
         ]
     },
     3: {
