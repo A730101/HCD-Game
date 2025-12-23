@@ -1849,7 +1849,24 @@ function nextStoryPage() {
 
 function showRecruitmentDialogue(companionType) {
     const config = charConfigs[state.selectedChar];
-    const dialogues = config.companionDialogs[companionType];
+
+    // Check existing companions to determine which dialogue to show
+    let dialogueKey = companionType;
+
+    // Get list of current companions (from pendingCompanions, excluding the one being recruited)
+    const existingCompanions = state.pendingCompanions ? [...state.pendingCompanions] : [];
+    // Remove the newly recruited companion from the list to get current companions
+    const currentCompanions = existingCompanions.filter(c => c !== companionType);
+
+    // Build dialogue key based on current companions + new companion
+    if (currentCompanions.length > 0) {
+        // Sort to ensure consistent key
+        const allCompanions = [...currentCompanions, companionType].sort();
+        dialogueKey = allCompanions.join('+');
+    }
+
+    // Try to get the specific dialogue, fallback to solo if not found
+    let dialogues = config.companionDialogs[dialogueKey] || config.companionDialogs[companionType];
 
     if (!dialogues || dialogues.length === 0) {
         // If no dialogue, just continue
