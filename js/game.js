@@ -62,7 +62,8 @@ const AchievementManager = {
             ending_cure: false,
             ending_escape: false,
             ending_richkid_love: false,
-            ending_shanji_selfish: false
+            ending_shanji_selfish: false,
+            ending_tyrant: false
         },
         stats: {
             totalGames: 0,
@@ -1375,6 +1376,24 @@ function showEndingChoice() {
             btn.onclick = () => triggerEnding('ending_shanji_selfish');
             btnContainer.appendChild(btn);
         }
+
+        // Dark path ending - only if enslaved Shanji
+        if (state.enslavedShanji) {
+            // Replace story text with dark path ending setup
+            storyText.innerHTML = "工廠深處，你找到了病毒核心樣本。<br><br>耀哥的身影早已消失，只剩下你和被奴役的山雞。<br><br>她的眼神已經失去了光彩，只剩下恐懼和服從。<br><br>你握著樣本，感受著絕對的權力...<br><br>在這個末日世界，你已經踏上了最黑暗的道路。";
+
+            // Clear previous buttons and show only dark ending
+            btnContainer.innerHTML = '';
+            const darkBtn = document.createElement('button');
+            darkBtn.className = 'btn';
+            darkBtn.style.background = 'linear-gradient(45deg, #450a0a, #1c0a00)';
+            darkBtn.style.boxShadow = '0 4px 20px rgba(127, 29, 29, 0.8)';
+            darkBtn.style.border = '2px solid #7f1d1d';
+            darkBtn.style.fontSize = '1.1rem';
+            darkBtn.textContent = '👁️ 建立你的末日帝國';
+            darkBtn.onclick = () => triggerEnding('ending_tyrant');
+            btnContainer.appendChild(darkBtn);
+        }
     } else {
         // Fallback if no ending choice defined
         storyText.innerHTML = "你成功活了下來...";
@@ -1413,6 +1432,10 @@ function triggerEnding(endingType) {
         case 'ending_shanji_selfish':
             endingTitle = "利益同盟";
             endingText = "「合作愉快，阿星。」山雞冷笑著收起樣本。\n\n你們各取所需：她得到了病毒樣本，你得到了生存的資源。\n\n「你不怕我背叛你？」你問。\n\n「彼此彼此。但至少現在，我們都需要對方活著。」\n\n在這個崩壞的世界裡，你們建立了一個小型生存基地。\n\n沒有愛，沒有信任，只有利益交換。\n\n但或許...這就是末日中最真實的關係。";
+            break;
+        case 'ending_tyrant':
+            endingTitle = "🔴 暴君降臨";
+            endingText = "你利用病毒樣本，控制了整個倖存者營地。\n\n阿傑和包子曾經試圖復仇，但都被你殘忍地鎮壓。\n\n山雞成為你的奴隸，她的群體成為你的私人軍隊。\n\n恐懼，是你統治的基石。\n力量，是你唯一的語言。\n\n三個月後，你建立了末日新秩序。\n倖存者們在你的鐵腕統治下苟活。\n\n「這就是弱肉強食的世界...而我，是最強的掠食者。」\n\n你站在工廠頂端，俯視著被奴役的人們。\n\n沒有道德，沒有人性，只有絕對的權力。\n\n━━━━━━━━━━━━━━━━\n\n【極端黑暗結局】\n\n你拋棄了所有人性，成為了末日暴君。\n在這個崩壞的世界裡，你選擇了最殘酷的生存方式。\n\n歷史會記住你的名字...作為人類墮落的象徵。";
             break;
         default:
             endingTitle = "存活";
@@ -1687,6 +1710,17 @@ function renderStoryPage() {
         storyText.innerHTML = pageData.text.replace(/\n/g, '<br>');
 
         if (pageData.choices) {
+            // Check if this is the Shanji choice (Chapter 2, page 6)
+            const isShanjiChoice = state.stage === 2 && state.storyPage === 6;
+            const hasAbandonedBoth = state.abandonedCompanions.includes('ahjie') &&
+                                     state.abandonedCompanions.includes('richkid');
+
+            // If player abandoned both previous companions, show dark path
+            if (isShanjiChoice && hasAbandonedBoth) {
+                // Change the story text to reflect the dark path
+                storyText.innerHTML = "突然，前方傳來腳步聲。<br><br>是山雞！她帶著一小隊倖存者。<br><br>「阿星...你釣魚的技術能幫我們獲取食物。跟我們一起吧。」<br><br>你看著山雞和她的隊伍，眼中閃過一絲危險的光芒...<br><br>在這個末日世界，弱肉強食。你已經拋棄了所有道德底線。";
+            }
+
             pageData.choices.forEach(choice => {
                 const btn = document.createElement('button');
                 btn.className = 'btn btn-blue mb-2 w-full'; // Use styled class
@@ -1695,6 +1729,22 @@ function renderStoryPage() {
                 btn.onclick = () => handleStoryChoice(choice);
                 btnContainer.appendChild(btn);
             });
+
+            // Add the dark option if conditions are met
+            if (isShanjiChoice && hasAbandonedBoth) {
+                const darkBtn = document.createElement('button');
+                darkBtn.className = 'btn mb-2 w-full';
+                darkBtn.style.marginBottom = '10px';
+                darkBtn.style.background = 'linear-gradient(45deg, #7f1d1d, #450a0a)';
+                darkBtn.style.boxShadow = '0 4px 15px rgba(127, 29, 29, 0.6)';
+                darkBtn.style.border = '2px solid #991b1b';
+                darkBtn.innerText = '⚠️ 劫財劫色，奴役山雞和她的群體 (極端黑暗路線)';
+                darkBtn.onclick = () => handleStoryChoice({
+                    text: darkBtn.innerText,
+                    action: 'enslave_shanji'
+                });
+                btnContainer.appendChild(darkBtn);
+            }
         }
     } else {
         // Standard Text Page
@@ -1745,6 +1795,21 @@ function handleStoryChoice(choice) {
             levelUp();
             showDialog('你搶走包子的VIP補給箱...立即升2級！', 4000);
         }
+    }
+
+    // Handle enslave action - the darkest path
+    if (choice.action === 'enslave_shanji') {
+        state.enslavedShanji = true;
+        state.abandonedCompanions.push('shanji'); // Also counts as abandoned
+
+        // Grant extreme bonuses for taking the dark path
+        player.stats.damage = (player.stats.damage || 1) * 2.0; // +100% damage
+        player.stats.armor = (player.stats.armor || 0) + 10; // +10 armor
+        player.maxHp += 50; // +50 max HP
+        player.hp = player.maxHp; // Full heal
+        updatePlayerHpUi();
+
+        showDialog('你奴役了山雞和她的群體...獲得絕對的力量！', 5000);
     }
 
     // Handle ending choices (Chapter 3 only)
@@ -3326,7 +3391,8 @@ function showAchievements() {
         { key: 'ending_cure', title: '💚 新的開始', desc: '竊取樣本，成功研發解藥' },
         { key: 'ending_escape', title: '🏍️ 流浪者', desc: '帶著樣本逃離，一路向西' },
         { key: 'ending_richkid_love', title: '💖 禁忌之愛', desc: '和包子一起離開，開始新的人生' },
-        { key: 'ending_shanji_selfish', title: '⚖️ 利益同盟', desc: '和山雞結盟，各取所需' }
+        { key: 'ending_shanji_selfish', title: '⚖️ 利益同盟', desc: '和山雞結盟，各取所需' },
+        { key: 'ending_tyrant', title: '🔴 暴君降臨', desc: '拋棄所有人性，成為末日暴君（極端黑暗結局）' }
     ];
 
     endingsList.innerHTML = endings.map(e => {
