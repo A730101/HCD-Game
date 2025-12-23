@@ -54,6 +54,91 @@ const SoundMgr = {
     }
 };
 
+// --- ACHIEVEMENT MANAGER ---
+const AchievementManager = {
+    data: {
+        endings: {
+            ending_destroy: false,
+            ending_cure: false,
+            ending_escape: false
+        },
+        stats: {
+            totalGames: 0,
+            totalKills: 0,
+            bestTime: null,
+            maxKills: 0,
+            completions: 0
+        }
+    },
+
+    init: function() {
+        const saved = localStorage.getItem('hcd_achievements');
+        if (saved) {
+            try {
+                this.data = JSON.parse(saved);
+            } catch (e) {
+                console.warn('Failed to load achievements:', e);
+            }
+        }
+    },
+
+    save: function() {
+        localStorage.setItem('hcd_achievements', JSON.stringify(this.data));
+    },
+
+    unlockEnding: function(endingType) {
+        if (this.data.endings[endingType] !== undefined) {
+            this.data.endings[endingType] = true;
+            this.data.stats.completions++;
+            this.save();
+        }
+    },
+
+    recordGameOver: function(time, kills) {
+        this.data.stats.totalGames++;
+        this.data.stats.totalKills += kills;
+        if (kills > this.data.stats.maxKills) {
+            this.data.stats.maxKills = kills;
+        }
+        this.save();
+    },
+
+    recordCompletion: function(time, kills) {
+        this.data.stats.totalGames++;
+        this.data.stats.totalKills += kills;
+        if (kills > this.data.stats.maxKills) {
+            this.data.stats.maxKills = kills;
+        }
+        if (!this.data.stats.bestTime || time < this.data.stats.bestTime) {
+            this.data.stats.bestTime = time;
+        }
+        this.save();
+    },
+
+    reset: function() {
+        this.data = {
+            endings: {
+                ending_destroy: false,
+                ending_cure: false,
+                ending_escape: false
+            },
+            stats: {
+                totalGames: 0,
+                totalKills: 0,
+                bestTime: null,
+                maxKills: 0,
+                completions: 0
+            }
+        };
+        this.save();
+    },
+
+    getProgress: function() {
+        const unlocked = Object.values(this.data.endings).filter(v => v).length;
+        return `${unlocked}/3`;
+    }
+};
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const uiTimer = document.getElementById('timer');
@@ -1013,6 +1098,9 @@ function gameOver() {
     const finalKills = document.getElementById('final-kills');
     const gameOverScreen = document.getElementById('game-over-screen');
 
+    // Record game stats
+    AchievementManager.recordGameOver(state.gameTime, state.kills);
+
     if (finalChar) finalChar.textContent = config.name;
     if (deathQuote) deathQuote.textContent = config.deathQuote;
     if (finalTime) finalTime.textContent = uiTimer.textContent;
@@ -1120,7 +1208,21 @@ function triggerEnding(endingType) {
             endingText = "你活下來了。";
     }
 
-    storyText.innerHTML = `<div style="font-size: 1.5rem; color: #fbbf24; margin-bottom: 1rem;">${endingTitle}</div>${endingText.replace(/\n/g, '<br>')}`;
+    // Record achievement
+    AchievementManager.unlockEnding(endingType);
+    AchievementManager.recordCompletion(state.gameTime, state.kills);
+
+    // Display ending with stats
+    const timeStr = formatTime(state.gameTime);
+    storyText.innerHTML = `
+        <div style="font-size: 1.5rem; color: #fbbf24; margin-bottom: 1rem;">${endingTitle}</div>
+        ${endingText.replace(/\n/g, '<br>')}
+        <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #555; font-size: 0.9rem; color: #aaa;">
+            <div>⏱️ 通關時間：<span style="color: #4ade80;">${timeStr}</span></div>
+            <div>💀 總擊殺數：<span style="color: #f87171;">${state.kills}</span></div>
+            <div style="margin-top: 0.5rem; color: #fbbf24;">🎉 結局已解鎖！</div>
+        </div>
+    `;
     btnContainer.innerHTML = `<button class="btn btn-green" onclick="location.reload()">重新開始</button>`;
 }
 
@@ -2735,3 +2837,64 @@ document.addEventListener('touchend', e => {
     }
     lastTouchEnd = now;
 }, false);
+
+// --- ACHIEVEMENT UI FUNCTIONS ---
+function showAchievements() {
+    const screen = document.getElementById('achievements-screen');
+    const endingsList = document.getElementById('endings-list');
+    const statsList = document.getElementById('stats-list');
+
+    // Display endings
+    const endings = [
+        { key: 'ending_destroy', title: '🔥 必要之惡', desc: '啟動自毀裝置，徹底消滅病毒' },
+        { key: 'ending_cure', title: '💚 新的開始', desc: '竊取樣本，成功研發解藥' },
+        { key: 'ending_escape', title: '🏍️ 流浪者', desc: '帶著樣本逃離，一路向西' }
+    ];
+
+    endingsList.innerHTML = endings.map(e => {
+        const unlocked = AchievementManager.data.endings[e.key];
+        return `
+            <div class="p-3 rounded" style="background: ${unlocked ? '#1a4d2e' : '#2a2a2a'}; border: 2px solid ${unlocked ? '#4ade80' : '#555'};">
+                <div class="text-lg ${unlocked ? 'text-green-400' : 'text-gray-500'}">${e.title}</div>
+                <div class="text-sm ${unlocked ? 'text-gray-300' : 'text-gray-600'}">${unlocked ? e.desc : '???'}</div>
+            </div>
+        `;
+    }).join('');
+
+    // Display stats
+    const stats = AchievementManager.data.stats;
+    const bestTimeStr = stats.bestTime ? formatTime(stats.bestTime) : '--:--';
+
+    statsList.innerHTML = `
+        <div>🎮 總遊戲次數：<span class="text-yellow-400">${stats.totalGames}</span></div>
+        <div>✅ 通關次數：<span class="text-green-400">${stats.completions}</span></div>
+        <div>💀 總擊殺數：<span class="text-red-400">${stats.totalKills}</span></div>
+        <div>🏆 最高擊殺：<span class="text-orange-400">${stats.maxKills}</span></div>
+        <div>⏱️ 最佳時間：<span class="text-blue-400">${bestTimeStr}</span></div>
+        <div>📖 結局收集：<span class="text-purple-400">${AchievementManager.getProgress()}</span></div>
+    `;
+
+    document.getElementById('story-screen').style.display = 'none';
+    screen.style.display = 'flex';
+}
+
+function closeAchievements() {
+    document.getElementById('achievements-screen').style.display = 'none';
+    document.getElementById('story-screen').style.display = 'flex';
+}
+
+function resetAchievements() {
+    if (confirm('確定要重置所有成就記錄嗎？此操作無法復原！')) {
+        AchievementManager.reset();
+        showAchievements(); // Refresh display
+    }
+}
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Initialize achievements on load
+AchievementManager.init();

@@ -60,6 +60,7 @@
                 <p class="mb-4 text-yellow-400 font-bold">目標只有一個：活下去，直到.....或救援來到！</p>
             </div>
             <button class="btn btn-green" onclick="showCharSelect()">進入選角</button>
+            <button class="btn btn-blue mt-2" onclick="showAchievements()">成就記錄</button>
         </div>
     </div>
 
@@ -197,6 +198,28 @@
             <p class="text-white text-lg">存活時間: <span id="final-time" class="text-blue-400">00:00</span></p>
             <p class="text-white text-lg mb-6">擊殺數: <span id="final-kills" class="text-red-400">0</span></p>
             <button class="btn" onclick="location.reload()">重新挑戰</button>
+        </div>
+    </div>
+
+    <!-- Achievements Screen -->
+    <div id="achievements-screen" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <h1 class="text-yellow-400 mb-4 text-2xl font-bold">🏆 成就記錄</h1>
+
+            <div class="mb-6">
+                <h2 class="text-green-400 text-xl mb-3">📖 結局收集</h2>
+                <div id="endings-list" class="space-y-2"></div>
+            </div>
+
+            <div class="mb-6">
+                <h2 class="text-blue-400 text-xl mb-3">📊 遊戲統計</h2>
+                <div id="stats-list" class="text-white space-y-1"></div>
+            </div>
+
+            <div class="flex gap-2">
+                <button class="btn btn-green" onclick="closeAchievements()">返回</button>
+                <button class="btn btn-red" onclick="resetAchievements()">重置成就</button>
+            </div>
         </div>
     </div>
 
