@@ -1760,11 +1760,18 @@ function renderStoryPage() {
 }
 
 function handleStoryChoice(choice) {
-    // Handle recruit actions
+    // Handle recruit actions - show recruitment dialogue first
     if (choice.action && choice.action.startsWith('recruit_')) {
         const type = choice.action.split('_')[1];
         if (!state.pendingCompanions) state.pendingCompanions = [];
         state.pendingCompanions.push(type);
+
+        // Show recruitment dialogue if available
+        const config = charConfigs[state.selectedChar];
+        if (config.companionDialogs && config.companionDialogs[type]) {
+            showRecruitmentDialogue(type);
+            return; // Don't continue to next page yet
+        }
     }
 
     // Handle abandon actions - gain powerful bonuses but companion becomes enemy
@@ -1840,6 +1847,60 @@ function nextStoryPage() {
     renderStoryPage();
 }
 
+function showRecruitmentDialogue(companionType) {
+    const config = charConfigs[state.selectedChar];
+    const dialogues = config.companionDialogs[companionType];
+
+    if (!dialogues || dialogues.length === 0) {
+        // If no dialogue, just continue
+        continueAfterRecruitment();
+        return;
+    }
+
+    const storyText = document.getElementById('stage-story-text');
+    const btnContainer = document.getElementById('stage-btn-container');
+
+    let currentDialogueIndex = 0;
+
+    function showNextDialogue() {
+        if (currentDialogueIndex >= dialogues.length) {
+            // All dialogues shown, continue to next story page
+            continueAfterRecruitment();
+            return;
+        }
+
+        const dialogue = dialogues[currentDialogueIndex];
+        storyText.innerHTML = dialogue.replace(/\n/g, '<br>');
+
+        // Show continue button
+        btnContainer.innerHTML = `<button class="btn btn-cyan" onclick="window.continueRecruitmentDialogue()">繼續</button>`;
+
+        currentDialogueIndex++;
+    }
+
+    // Make the continue function globally accessible
+    window.continueRecruitmentDialogue = showNextDialogue;
+
+    // Show first dialogue
+    showNextDialogue();
+}
+
+function continueAfterRecruitment() {
+    // Clean up global function
+    delete window.continueRecruitmentDialogue;
+
+    // Continue with normal story flow
+    const shouldStartGame = (
+        (state.stage === 1 && state.storyPage === 1) ||  // Chapter 1 first choice (阿傑)
+        (state.stage === 2 && state.storyPage === 4)     // Chapter 2 first choice (包子)
+    );
+
+    if (shouldStartGame) {
+        startActualGame();
+    } else {
+        nextStoryPage();
+    }
+}
 
 function startActualGame() {
     document.getElementById('stage-transition-screen').style.display = 'none';

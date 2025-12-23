@@ -147,6 +147,7 @@ canvas { display: block; touch-action: none; }
 .btn:active { transform: scale(0.95); }
 .btn-green { background: linear-gradient(45deg, #10b981, #059669); box-shadow: 0 4px 15px rgba(5, 150, 105, 0.4); }
 .btn-blue { background: linear-gradient(45deg, #3b82f6, #2563eb); box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); }
+.btn-cyan { background: linear-gradient(45deg, #06b6d4, #0891b2); box-shadow: 0 4px 15px rgba(8, 145, 178, 0.4); }
 .btn-pink { background: linear-gradient(45deg, #ec4899, #db2777); box-shadow: 0 4px 15px rgba(219, 39, 119, 0.4); }
 .btn-purple { background: linear-gradient(45deg, #a855f7, #9333ea); box-shadow: 0 4px 15px rgba(147, 51, 234, 0.4); }
 .btn-red { background: linear-gradient(45deg, #ef4444, #dc2626); box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4); }
