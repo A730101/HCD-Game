@@ -60,7 +60,9 @@ const AchievementManager = {
         endings: {
             ending_destroy: false,
             ending_cure: false,
-            ending_escape: false
+            ending_escape: false,
+            ending_richkid_love: false,
+            ending_shanji_selfish: false
         },
         stats: {
             totalGames: 0,
@@ -120,7 +122,9 @@ const AchievementManager = {
             endings: {
                 ending_destroy: false,
                 ending_cure: false,
-                ending_escape: false
+                ending_escape: false,
+                ending_richkid_love: false,
+                ending_shanji_selfish: false
             },
             stats: {
                 totalGames: 0,
@@ -135,7 +139,7 @@ const AchievementManager = {
 
     getProgress: function() {
         const unlocked = Object.values(this.data.endings).filter(v => v).length;
-        return `${unlocked}/3`;
+        return `${unlocked}/5`;
     }
 };
 
@@ -1156,6 +1160,10 @@ function showEndingChoice() {
     const header = screen.querySelector('h2');
     if (header) header.textContent = "抉擇時刻";
 
+    // Check companions for special endings
+    const hasRichkid = state.companions.some(c => c.type === 'richkid');
+    const hasShanji = state.companions.some(c => c.type === 'shanji');
+
     // Get the ending choice story (index 10 in forestStory)
     const choiceStory = config.forestStory[10];
     if (choiceStory && choiceStory.text) {
@@ -1163,6 +1171,8 @@ function showEndingChoice() {
 
         // Create buttons for choices
         btnContainer.innerHTML = '';
+
+        // Add original ending choices
         if (choiceStory.choices) {
             choiceStory.choices.forEach((choice, idx) => {
                 const btn = document.createElement('button');
@@ -1171,6 +1181,23 @@ function showEndingChoice() {
                 btn.onclick = () => triggerEnding(choice.action);
                 btnContainer.appendChild(btn);
             });
+        }
+
+        // Add companion-specific endings
+        if (hasRichkid) {
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-pink';
+            btn.textContent = '和包子一起離開，開始新的人生';
+            btn.onclick = () => triggerEnding('ending_richkid_love');
+            btnContainer.appendChild(btn);
+        }
+
+        if (hasShanji) {
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-purple';
+            btn.textContent = '和山雞結盟，各取所需';
+            btn.onclick = () => triggerEnding('ending_shanji_selfish');
+            btnContainer.appendChild(btn);
         }
     } else {
         // Fallback if no ending choice defined
@@ -1202,6 +1229,14 @@ function triggerEnding(endingType) {
         case 'ending_escape':
             endingTitle = "流浪者";
             endingText = "你推開耀哥，帶著樣本獨自逃離。\n\n身後傳來他絕望的吼聲。\n\n你騎著阿傑的改裝車，一路向西。\n\n「真相太沉重...不如一路向西，釣遍所有的河。」";
+            break;
+        case 'ending_richkid_love':
+            endingTitle = "禁忌之愛";
+            endingText = "「學長...這次換我保護你。」包子握緊你的手。\n\n你們帶著樣本逃出工廠，遠離這個瘋狂的世界。\n\n在海邊的小屋裡，你教他釣魚，他教你享受生活。\n\n「以前我用錢買不到的東西，現在都有了。」包子笑著說。\n\n「釣魚嗎？」你問。\n\n「不...是你啊，學長。」\n\n夕陽下，兩個身影緊緊相依。";
+            break;
+        case 'ending_shanji_selfish':
+            endingTitle = "利益同盟";
+            endingText = "「合作愉快，阿星。」山雞冷笑著收起樣本。\n\n你們各取所需：她得到了病毒樣本，你得到了生存的資源。\n\n「你不怕我背叛你？」你問。\n\n「彼此彼此。但至少現在，我們都需要對方活著。」\n\n在這個崩壞的世界裡，你們建立了一個小型生存基地。\n\n沒有愛，沒有信任，只有利益交換。\n\n但或許...這就是末日中最真實的關係。";
             break;
         default:
             endingTitle = "存活";
@@ -1255,7 +1290,7 @@ function continueToNextStage() {
     player.compoundInterest = false;
     player.invulnTimer = 0;
     player.regenTimer = 0;
-    state.companions = []; // Reset companions
+    // Keep companions across chapters - don't reset
 
     // Re-apply base config
     const config = charConfigs[state.selectedChar];
@@ -2848,7 +2883,9 @@ function showAchievements() {
     const endings = [
         { key: 'ending_destroy', title: '🔥 必要之惡', desc: '啟動自毀裝置，徹底消滅病毒' },
         { key: 'ending_cure', title: '💚 新的開始', desc: '竊取樣本，成功研發解藥' },
-        { key: 'ending_escape', title: '🏍️ 流浪者', desc: '帶著樣本逃離，一路向西' }
+        { key: 'ending_escape', title: '🏍️ 流浪者', desc: '帶著樣本逃離，一路向西' },
+        { key: 'ending_richkid_love', title: '💖 禁忌之愛', desc: '和包子一起離開，開始新的人生' },
+        { key: 'ending_shanji_selfish', title: '⚖️ 利益同盟', desc: '和山雞結盟，各取所需' }
     ];
 
     endingsList.innerHTML = endings.map(e => {
