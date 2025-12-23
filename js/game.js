@@ -723,11 +723,16 @@ function damageCompanion(c, damage) {
 
 // Spawn a corrupted companion as a boss
 function spawnCompanionBoss(companion) {
+    // Ensure boss spawns within map bounds
+    const mapW = state.map.width || 2000;
+    const mapH = state.map.height || 2000;
+    const margin = 100;
+
     const boss = {
         id: Math.random(),
         isBoss: true,
-        x: companion.x,
-        y: companion.y,
+        x: Math.max(margin, Math.min(companion.x, mapW - margin)),
+        y: Math.max(margin, Math.min(companion.y, mapH - margin)),
         pushX: 0,
         pushY: 0,
         flashTimer: 0,
@@ -1990,6 +1995,13 @@ function spawnEnemyLogic() {
         case 3: ex = camX - buffer; ey = camY + Math.random() * camH; break; // Left
     }
 
+    // Clamp spawn position to map bounds to prevent spawning outside walls
+    const mapW = state.map.width || 2000;
+    const mapH = state.map.height || 2000;
+    const margin = 30; // Keep enemies inside the outer wall boundary
+    ex = Math.max(margin, Math.min(ex, mapW - margin));
+    ey = Math.max(margin, Math.min(ey, mapH - margin));
+
     const scale = 1 + (state.gameTime / 100);
     const r = Math.random();
 
@@ -2050,8 +2062,15 @@ function spawnBoss(tier) {
         pushX: 0, pushY: 0, flashTimer: 0, state: 'move', dead: false, summonTimer: 0, phase: 1
     };
 
-    // Ensure within map bounds Y (don't spawn in void if at top)
-    if (boss.y < 50) boss.y = player.y + 500; // Spawn below if at top
+    // Ensure within map bounds (don't spawn outside walls)
+    const mapW = state.map.width || 2000;
+    const mapH = state.map.height || 2000;
+    const margin = 100; // Boss needs more margin due to larger size
+
+    if (boss.y < margin) boss.y = player.y + 500; // Spawn below if at top
+    if (boss.y > mapH - margin) boss.y = player.y - 500; // Spawn above if at bottom
+    boss.x = Math.max(margin, Math.min(boss.x, mapW - margin));
+    boss.y = Math.max(margin, Math.min(boss.y, mapH - margin));
 
     // Trigger Boss Dialog
     triggerDialog('boss');
@@ -2410,6 +2429,14 @@ function updateEntities(dt) {
                     e.teleportTimer = 0;
                     e.x = player.x + (Math.random() - 0.5) * 400;
                     e.y = player.y + (Math.random() - 0.5) * 400;
+
+                    // Clamp teleport position to map bounds
+                    const mapW = state.map.width || 2000;
+                    const mapH = state.map.height || 2000;
+                    const margin = 100;
+                    e.x = Math.max(margin, Math.min(e.x, mapW - margin));
+                    e.y = Math.max(margin, Math.min(e.y, mapH - margin));
+
                     createParticles(e.x, e.y, '#a855f7', 10);
                 }
             }
@@ -2420,11 +2447,21 @@ function updateEntities(dt) {
             if (e.summonTimer > summonInterval) {
                 e.summonTimer = 0;
                 const summonCount = e.phase === 3 ? 5 : 3;
+                const mapW = state.map.width || 2000;
+                const mapH = state.map.height || 2000;
+                const margin = 30;
+
                 for (let k = 0; k < summonCount; k++) {
+                    let sx = e.x + (Math.random() - 0.5) * 80;
+                    let sy = e.y + (Math.random() - 0.5) * 80;
+                    // Clamp summoned enemy position to map bounds
+                    sx = Math.max(margin, Math.min(sx, mapW - margin));
+                    sy = Math.max(margin, Math.min(sy, mapH - margin));
+
                     newEntitiesQueue.push({
                         cat: 'enemy', obj: {
                             id: Math.random(), type: 'basic',
-                            x: e.x + (Math.random() - 0.5) * 80, y: e.y + (Math.random() - 0.5) * 80,
+                            x: sx, y: sy,
                             radius: 10, color: e.color, speed: 80, hp: 60, maxHp: 60, pushX: 0, pushY: 0, flashTimer: 0, dead: false, state: 'move', stateTimer: 0
                         }
                     });
