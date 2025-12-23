@@ -1413,11 +1413,11 @@ function handleStoryChoice(choice) {
 
     // Determine if we should start game or continue story
     // Chapter 1: After index 1 choice -> start game
-    // Chapter 2: After index 6 choice -> start game
+    // Chapter 2: After index 4 choice -> start game
     // Otherwise: continue to next page
     const shouldStartGame = (
-        (state.stage === 1 && state.storyPage === 1) ||  // Chapter 1 first choice
-        (state.stage === 2 && state.storyPage === 6)     // Chapter 2 last choice
+        (state.stage === 1 && state.storyPage === 1) ||  // Chapter 1 first choice (阿傑)
+        (state.stage === 2 && state.storyPage === 4)     // Chapter 2 first choice (包子)
     );
 
     if (shouldStartGame) {
