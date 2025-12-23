@@ -174,7 +174,9 @@ const state = {
     walls: [], // Array of {x,y,w,h}
     lastCompanionDialogTime: 0, // Track companion dialogue cooldown
     companionDialogCooldown: 15, // Seconds between companion dialogues
-    killCount: 0 // Track kills for companion dialogue triggers
+    killCount: 0, // Track kills for companion dialogue triggers
+    abandonedCompanions: [], // Track abandoned companions who will become enemies
+    abandonedSpawnTimer: 0 // Timer for spawning abandoned companions
 };
 
 const STAGE_CONFIGS = {
@@ -1715,6 +1717,36 @@ function handleStoryChoice(choice) {
         state.pendingCompanions.push(type);
     }
 
+    // Handle abandon actions - gain powerful bonuses but companion becomes enemy
+    if (choice.action && choice.action.startsWith('abandon_')) {
+        const type = choice.action.split('_')[1];
+        state.abandonedCompanions.push(type);
+
+        // Grant powerful bonuses based on who was abandoned
+        if (type === 'ahjie') {
+            // Abandoned 阿傑: Gain +30% speed
+            player.stats.speed = (player.stats.speed || 1) * 1.3;
+            showDialog('你冷酷地拋下阿傑...獲得速度提升！', 4000);
+        } else if (type === 'shanji') {
+            // Abandoned 山雞: Gain +50% damage
+            player.stats.damage = (player.stats.damage || 1) * 1.5;
+            showDialog('你拒絕了山雞...獲得攻擊力提升！', 4000);
+        }
+    }
+
+    // Handle loot actions - take resources and abandon companion
+    if (choice.action && choice.action.startsWith('loot_')) {
+        const type = choice.action.split('_')[1];
+        state.abandonedCompanions.push(type);
+
+        if (type === 'richkid') {
+            // Looted 包子: Gain 2 levels instantly
+            levelUp();
+            levelUp();
+            showDialog('你搶走包子的VIP補給箱...立即升2級！', 4000);
+        }
+    }
+
     // Handle ending choices (Chapter 3 only)
     if (choice.action && choice.action.startsWith('ending_')) {
         const endingType = choice.action; // "ending_destroy", "ending_cure", "ending_escape"
@@ -1990,6 +2022,16 @@ function handleSpawns(dt) {
         spawnTimer = 0;
         spawnEnemyLogic();
     }
+
+    // Spawn abandoned companions as powerful enemies
+    if (state.abandonedCompanions && state.abandonedCompanions.length > 0) {
+        state.abandonedSpawnTimer += dt;
+        // Spawn every 45 seconds
+        if (state.abandonedSpawnTimer > 45) {
+            state.abandonedSpawnTimer = 0;
+            spawnAbandonedCompanion();
+        }
+    }
 }
 
 function spawnEnemyLogic() {
@@ -2170,6 +2212,80 @@ function spawnBoss(tier) {
 
     state.bossObj = boss;
     enemies.push(boss);
+}
+
+function spawnAbandonedCompanion() {
+    if (!state.abandonedCompanions || state.abandonedCompanions.length === 0) return;
+
+    // Randomly select an abandoned companion
+    const type = state.abandonedCompanions[Math.floor(Math.random() * state.abandonedCompanions.length)];
+
+    // Spawn near player but outside view
+    const camX = state.camera.x;
+    const camY = state.camera.y;
+    const camW = width;
+    const camH = height;
+    const side = Math.floor(Math.random() * 4);
+    const buffer = 100;
+
+    let ex, ey;
+    switch (side) {
+        case 0: ex = camX + Math.random() * camW; ey = camY - buffer; break;
+        case 1: ex = camX + camW + buffer; ey = camY + Math.random() * camH; break;
+        case 2: ex = camX + Math.random() * camW; ey = camY + camH + buffer; break;
+        case 3: ex = camX - buffer; ey = camY + Math.random() * camH; break;
+    }
+
+    // Clamp to map bounds
+    const mapW = state.map.width || 2000;
+    const mapH = state.map.height || 2000;
+    const margin = 30;
+    ex = Math.max(margin, Math.min(ex, mapW - margin));
+    ey = Math.max(margin, Math.min(ey, mapH - margin));
+
+    // Create abandoned companion enemy with unique stats
+    let enemy = {
+        id: Math.random(),
+        type: `abandoned_${type}`,
+        x: ex,
+        y: ey,
+        pushX: 0,
+        pushY: 0,
+        flashTimer: 0,
+        state: 'move',
+        stateTimer: 0,
+        dead: false,
+        isAbandoned: true // Mark as abandoned companion
+    };
+
+    // Set stats based on companion type
+    if (type === 'ahjie') {
+        enemy.radius = 18;
+        enemy.color = '#dc2626'; // Red
+        enemy.hp = 800;
+        enemy.maxHp = 800;
+        enemy.speed = 120; // Very fast
+        enemy.name = '憤怒的阿傑';
+        showDialog('阿傑憤怒地追上來了！', 3000);
+    } else if (type === 'richkid') {
+        enemy.radius = 16;
+        enemy.color = '#ca8a04'; // Gold
+        enemy.hp = 1200;
+        enemy.maxHp = 1200;
+        enemy.speed = 80;
+        enemy.name = '怨恨的包子';
+        showDialog('包子帶著怨恨追來了！', 3000);
+    } else if (type === 'shanji') {
+        enemy.radius = 17;
+        enemy.color = '#9333ea'; // Purple
+        enemy.hp = 1000;
+        enemy.maxHp = 1000;
+        enemy.speed = 100;
+        enemy.name = '復仇的山雞';
+        showDialog('山雞來復仇了！', 3000);
+    }
+
+    enemies.push(enemy);
 }
 
 function updateEntities(dt) {
@@ -3038,6 +3154,39 @@ function draw() {
         if (e.isBoss) {
             ctx.fillStyle = '#000'; ctx.fillRect(e.x - 30, e.y - e.radius - 15, 60, 8);
             ctx.fillStyle = '#ef4444'; ctx.fillRect(e.x - 30, e.y - e.radius - 15, 60 * (e.hp / e.maxHp), 8);
+        }
+
+        // Abandoned companion name tag
+        if (e.isAbandoned && e.name) {
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            // Shadow for readability
+            ctx.fillStyle = '#000';
+            ctx.fillText(e.name, e.x + 1, e.y - e.radius - 25 + 1);
+            // Main text
+            ctx.fillStyle = '#fff';
+            ctx.fillText(e.name, e.x, e.y - e.radius - 25);
+
+            // HP bar for abandoned companions
+            const barWidth = 40;
+            const barHeight = 5;
+            const barX = e.x - barWidth / 2;
+            const barY = e.y - e.radius - 15;
+            const pct = Math.max(0, e.hp / e.maxHp);
+
+            // Background
+            ctx.fillStyle = '#1f2937';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+
+            // HP fill
+            ctx.fillStyle = e.color;
+            ctx.fillRect(barX, barY, barWidth * pct, barHeight);
+
+            // HP bar border
+            ctx.strokeStyle = '#374151';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(barX, barY, barWidth, barHeight);
         }
     });
 
