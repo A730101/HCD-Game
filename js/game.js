@@ -331,18 +331,18 @@ function triggerCompanionDialogue(eventType) {
 
     if (starLine && companionLine) {
         // Show both lines with a delay
-        showDialog(`阿星: ${starLine}`, 2500);
+        showDialog(`阿星: ${starLine}`, 4500);
         setTimeout(() => {
             const companionName = companion.type === 'ahjie' ? '阿傑' :
                                  companion.type === 'richkid' ? '包子' : '山雞';
-            showDialog(`${companionName}: ${companionLine}`, 2500);
-        }, 2600);
+            showDialog(`${companionName}: ${companionLine}`, 4500);
+        }, 5000);
     } else if (starLine) {
-        showDialog(`阿星: ${starLine}`, 2500);
+        showDialog(`阿星: ${starLine}`, 4500);
     } else if (companionLine) {
         const companionName = companion.type === 'ahjie' ? '阿傑' :
                              companion.type === 'richkid' ? '包子' : '山雞';
-        showDialog(`${companionName}: ${companionLine}`, 2500);
+        showDialog(`${companionName}: ${companionLine}`, 4500);
     }
 
     state.lastCompanionDialogTime = state.gameTime;
