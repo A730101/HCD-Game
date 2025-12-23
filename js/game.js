@@ -171,7 +171,10 @@ const state = {
     stage: 1, stage1Cleared: false, stageStartTime: 0, companions: [],
     camera: { x: 0, y: 0 },
     map: { width: 0, height: 0 },
-    walls: [] // Array of {x,y,w,h}
+    walls: [], // Array of {x,y,w,h}
+    lastCompanionDialogTime: 0, // Track companion dialogue cooldown
+    companionDialogCooldown: 15, // Seconds between companion dialogues
+    killCount: 0 // Track kills for companion dialogue triggers
 };
 
 const STAGE_CONFIGS = {
@@ -299,6 +302,63 @@ function showDialog(text, duration = 3000) {
         bubble.style.opacity = '0';
     }, duration);
 }
+
+// --- COMPANION DIALOGUE SYSTEM ---
+function triggerCompanionDialogue(eventType) {
+    // Only trigger if we have companions and fisherman is selected
+    if (state.selectedChar !== 'fisherman' || state.companions.length === 0) return;
+
+    // Check cooldown
+    if (state.gameTime - state.lastCompanionDialogTime < state.companionDialogCooldown) return;
+
+    // Randomly select a companion
+    const companion = state.companions[Math.floor(Math.random() * state.companions.length)];
+    if (!companion || !companion.type) return;
+
+    // Get dialogue data
+    const dialogueData = companionDialogues[companion.type];
+    if (!dialogueData || !dialogueData[eventType]) return;
+
+    const dialogueOptions = dialogueData[eventType];
+    if (dialogueOptions.length === 0) return;
+
+    // Select random dialogue
+    const dialogue = dialogueOptions[Math.floor(Math.random() * dialogueOptions.length)];
+
+    // Display dialogue
+    const starLine = dialogue.star || null;
+    const companionLine = dialogue[companion.type] || null;
+
+    if (starLine && companionLine) {
+        // Show both lines with a delay
+        showDialog(`阿星: ${starLine}`, 2500);
+        setTimeout(() => {
+            const companionName = companion.type === 'ahjie' ? '阿傑' :
+                                 companion.type === 'richkid' ? '包子' : '山雞';
+            showDialog(`${companionName}: ${companionLine}`, 2500);
+        }, 2600);
+    } else if (starLine) {
+        showDialog(`阿星: ${starLine}`, 2500);
+    } else if (companionLine) {
+        const companionName = companion.type === 'ahjie' ? '阿傑' :
+                             companion.type === 'richkid' ? '包子' : '山雞';
+        showDialog(`${companionName}: ${companionLine}`, 2500);
+    }
+
+    state.lastCompanionDialogTime = state.gameTime;
+}
+
+// Trigger random companion dialogue periodically
+function tryRandomCompanionDialogue() {
+    if (state.selectedChar !== 'fisherman' || state.companions.length === 0) return;
+    if (state.gameTime - state.lastCompanionDialogTime < state.companionDialogCooldown) return;
+
+    // 10% chance every check
+    if (Math.random() < 0.1) {
+        triggerCompanionDialogue('random');
+    }
+}
+
 // --- STAGE SELECT ---
 function showStageSelection() {
     document.getElementById('start-screen').style.display = 'none';
@@ -897,10 +957,16 @@ function markEnemyDead(e) {
     if (!e || e.dead) return;
     e.dead = true;
     state.kills++;
+    state.killCount++;
     uiKills.textContent = state.kills;
 
     // Trigger Kill Streak Dialog
     if (state.kills % 20 === 0) triggerDialog('killStreak');
+
+    // Trigger companion dialogue on kill (every 5 kills)
+    if (state.killCount % 5 === 0) {
+        triggerCompanionDialogue('onKill');
+    }
 
     if (e.isBoss) {
         state.bossActive = false;
@@ -1005,6 +1071,11 @@ function levelUp() {
     uiLevel.textContent = state.level;
     state.paused = true;
     triggerDialog('levelUp'); // Dialog on level up
+
+    // Trigger companion dialogue on level up
+    setTimeout(() => {
+        triggerCompanionDialogue('onLevelUp');
+    }, 1000);
 
     const pool = [...commonUpgrades];
     if (charUpgrades[state.selectedChar]) pool.push(...charUpgrades[state.selectedChar]);
@@ -1615,6 +1686,11 @@ function update(dt) {
     handleInput(dt);
     handleSpawns(dt);
 
+    // Try random companion dialogue (every few seconds)
+    if (Math.floor(state.gameTime) % 10 === 0) {
+        tryRandomCompanionDialogue();
+    }
+
     if (newEntitiesQueue.length > 0) {
         newEntitiesQueue.forEach(item => {
             if (!item || !item.obj) return;
@@ -1897,6 +1973,11 @@ function spawnBoss(tier) {
 
     // Trigger Boss Dialog
     triggerDialog('boss');
+
+    // Trigger companion dialogue for boss
+    setTimeout(() => {
+        triggerCompanionDialogue('onBoss');
+    }, 2000);
 
     // Stage-specific bosses
     if (state.stage === 1) {
@@ -2288,6 +2369,11 @@ function updateEntities(dt) {
             g.y += (player.y - g.y) * 6 * dt;
             if (Math.hypot(g.x - player.x, g.y - player.y) < player.radius) {
                 gainXp(g.val); g.dead = true;
+
+                // Trigger companion dialogue on pickup (low chance)
+                if (Math.random() < 0.05) { // 5% chance
+                    triggerCompanionDialogue('onPickup');
+                }
             }
         }
     }
@@ -2344,6 +2430,13 @@ function checkCollisions() {
 
                 // Hurt Dialog
                 triggerDialog('hurt');
+
+                // Trigger companion dialogue when hurt
+                if (Math.random() < 0.3) { // 30% chance
+                    setTimeout(() => {
+                        triggerCompanionDialogue('onHurt');
+                    }, 1500);
+                }
 
                 // Thorns Check (Ah Zhang innate)
                 if (player.stats.thorns > 0) {
