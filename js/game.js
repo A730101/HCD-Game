@@ -1397,20 +1397,34 @@ function renderStoryPage() {
 }
 
 function handleStoryChoice(choice) {
+    // Handle recruit actions
     if (choice.action && choice.action.startsWith('recruit_')) {
         const type = choice.action.split('_')[1];
         if (!state.pendingCompanions) state.pendingCompanions = [];
         state.pendingCompanions.push(type);
     }
 
-    // Advancing logic:
-    // If choice has 'outcome', show it immediately? 
-    // Simplify: Just go to next page if normal, or if 'outcome' text provided, show it?
-    // Let's assume the choice leads to the next linear page for now, 
-    // OR if we want to branch, we'd need complex logic.
-    // For this simple request, we can just say "Choice Made -> Next Page".
-    // But if the user wants "Outcome", we can trigger a popup or just advance.
-    nextStoryPage();
+    // Handle ending choices (Chapter 3 only)
+    if (choice.action && choice.action.startsWith('ending_')) {
+        const endingType = choice.action; // "ending_destroy", "ending_cure", "ending_escape"
+        triggerEnding(endingType);
+        return;
+    }
+
+    // Determine if we should start game or continue story
+    // Chapter 1: After index 1 choice -> start game
+    // Chapter 2: After index 6 choice -> start game
+    // Otherwise: continue to next page
+    const shouldStartGame = (
+        (state.stage === 1 && state.storyPage === 1) ||  // Chapter 1 first choice
+        (state.stage === 2 && state.storyPage === 6)     // Chapter 2 last choice
+    );
+
+    if (shouldStartGame) {
+        startActualGame();
+    } else {
+        nextStoryPage();
+    }
 }
 
 function nextStoryPage() {
