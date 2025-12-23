@@ -1082,7 +1082,23 @@ function markEnemyDead(e) {
             }, 3000);
         }
 
-        newEntitiesQueue.push({ cat: 'gem', obj: { x: e.x, y: e.y, radius: 10, color: '#fbbf24', val: 500, dead: false } });
+        // Calculate boss XP reward
+        // Mid bosses: enough XP for 3 levels at current level
+        // Final bosses: even more XP for 3 levels with buffer
+        let bossXP = 500; // Default
+
+        if (isFinalBoss) {
+            // Final boss: 3x current level requirement for guaranteed 3 levels
+            bossXP = Math.floor(state.xpToNextLevel * 3.6);
+        } else {
+            // Mid boss: 3x current level requirement
+            bossXP = Math.floor(state.xpToNextLevel * 3.6);
+        }
+
+        // Minimum XP to ensure value even at level 1
+        bossXP = Math.max(bossXP, 150);
+
+        newEntitiesQueue.push({ cat: 'gem', obj: { x: e.x, y: e.y, radius: 10, color: '#fbbf24', val: bossXP, dead: false } });
     } else {
         if (e.type === 'splitter') {
             for (let k = 0; k < 2; k++) {
