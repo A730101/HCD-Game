@@ -1032,8 +1032,8 @@ function showStageTransition() {
     const header = screen.querySelector('h2');
     if (header) header.textContent = "關卡完成！";
 
-    // Get story text based on current stage
-    const storyIndex = (state.stage === 1) ? 3 : 6; // Index 3 for stage 1->2, index 6 for stage 2->3
+    // Get story text based on current stage (ending text for completed stage)
+    const storyIndex = (state.stage === 1) ? 2 : 7; // Index 2 for stage 1 ending, index 7 for stage 2 ending
     const storyLine = config.forestStory[storyIndex] || "準備進入下一章...";
 
     storyText.innerHTML = storyLine.replace(/\n/g, '<br>');
@@ -1341,13 +1341,13 @@ function showIntroStory() {
     if (header) header.textContent = chapterTitles[state.stage - 1] || "故事";
 
     // Set story page based on current stage
-    // Stage 1: index 0, Stage 2: index 4, Stage 3: index 7
+    // Stage 1: index 0, Stage 2: index 3, Stage 3: index 8
     if (state.stage === 1) {
         state.storyPage = 0;
     } else if (state.stage === 2) {
-        state.storyPage = 4;
+        state.storyPage = 3;
     } else if (state.stage === 3) {
-        state.storyPage = 7;
+        state.storyPage = 8;
     }
 
     renderStoryPage();
