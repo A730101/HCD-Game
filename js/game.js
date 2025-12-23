@@ -449,11 +449,14 @@ function spawnCompanion(type) {
         x: player.x, y: player.y,
         radius: 14,
         color: '#fff',
-        hp: 100, maxHp: 100,
+        hp: 150, maxHp: 150,  // Increased HP
         level: 1, // Start Level
         dead: false, respawnTimer: 0,
         lastAction: 0,
         actionRate: 1.0, // Default action rate
+        invulnTimer: 0, // Invulnerability timer
+        regenTimer: 0, // Health regeneration timer
+        regenRate: 5 // HP regenerated per second
     };
 
     // Load Image
@@ -520,6 +523,20 @@ function updateCompanions(dt) {
                 spawnDamageNumber(player.x, player.y, `${c.type.toUpperCase()} REVIVED!`, "#bef264");
             }
             return;
+        }
+
+        // Update invulnerability timer
+        if (c.invulnTimer > 0) {
+            c.invulnTimer -= dt;
+        }
+
+        // Health regeneration
+        c.regenTimer += dt;
+        if (c.regenTimer >= 1.0) { // Every 1 second
+            c.regenTimer = 0;
+            if (c.hp < c.maxHp) {
+                c.hp = Math.min(c.maxHp, c.hp + c.regenRate);
+            }
         }
 
         // 1. Movement logic (Follow Player)
@@ -674,6 +691,71 @@ function triggerCompanionBanter() {
 
         showDialog(pool[Math.floor(Math.random() * pool.length)], 3500);
     }
+}
+
+// Companion takes damage
+function damageCompanion(c, damage) {
+    if (c.dead || c.invulnTimer > 0) return;
+
+    c.hp -= damage;
+    c.invulnTimer = 0.5; // 0.5 seconds invulnerability
+    spawnDamageNumber(c.x, c.y, `-${Math.ceil(damage)}`, "#ef4444");
+
+    // Check if companion died
+    if (c.hp <= 0) {
+        c.hp = 0;
+        c.dead = true;
+
+        const companionName = c.type === 'ahjie' ? '阿傑' :
+                             c.type === 'richkid' ? '包子' :
+                             c.type === 'shanji' ? '山雞' : c.type;
+
+        // 50% chance to become a boss
+        if (Math.random() < 0.5) {
+            spawnCompanionBoss(c);
+            showDialog(`${companionName} 失控了！`, 3000);
+        } else {
+            showDialog(`${companionName} 倒下了...`, 3000);
+            c.respawnTimer = 30; // Respawn in 30 seconds
+        }
+    }
+}
+
+// Spawn a corrupted companion as a boss
+function spawnCompanionBoss(companion) {
+    const boss = {
+        id: Math.random(),
+        isBoss: true,
+        x: companion.x,
+        y: companion.y,
+        pushX: 0,
+        pushY: 0,
+        flashTimer: 0,
+        state: 'move',
+        dead: false,
+        phase: 1,
+        type: `corrupted_${companion.type}`,
+        bossName: companion.type === 'ahjie' ? '失控的阿傑' :
+                 companion.type === 'richkid' ? '失控的包子' :
+                 companion.type === 'shanji' ? '失控的山雞' : '失控的隊友',
+        radius: 40,
+        color: '#9333ea', // Purple for corrupted
+        hp: 8000,
+        maxHp: 8000,
+        speed: 70
+    };
+
+    state.bossActive = true;
+    state.bossObj = boss;
+    enemies.push(boss);
+
+    // Remove companion from list after delay
+    setTimeout(() => {
+        const index = state.companions.indexOf(companion);
+        if (index > -1) {
+            state.companions.splice(index, 1);
+        }
+    }, 100);
 }
 
 function performCompanionAction(c) {
@@ -2396,6 +2478,24 @@ function updateEntities(dt) {
 }
 
 function checkCollisions() {
+    // Enemies vs Companions
+    for (const e of enemies) {
+        if (!e || e.dead) continue;
+
+        // Check collision with companions first
+        for (const c of state.companions) {
+            if (!c || c.dead) continue;
+            if (Math.hypot(e.x - c.x, e.y - c.y) < e.radius + c.radius) {
+                // HIT COMPANION
+                if (c.invulnTimer <= 0) {
+                    let rawDmg = 15; // Base damage to companions
+                    if (e.isBoss) rawDmg = 25;
+                    damageCompanion(c, rawDmg);
+                }
+            }
+        }
+    }
+
     // Player vs Enemy
     for (const e of enemies) {
         if (!e || e.dead) continue;
@@ -2772,15 +2872,61 @@ function draw() {
     if (state.companions) {
         state.companions.forEach(c => {
             if (c.dead) return;
+
+            // Flashing effect when invulnerable
+            const alpha = (c.invulnTimer > 0 && Math.floor(state.gameTime * 10) % 2 === 0) ? 0.5 : 1.0;
+            ctx.globalAlpha = alpha;
+
+            // Draw companion body
             if (c.imgObj && c.imgObj.complete && c.imgObj.naturalWidth !== 0) {
-                const size = c.radius * 2.8; ctx.drawImage(c.imgObj, c.x - size / 2, c.y - size / 2, size, size);
+                const size = c.radius * 2.8;
+                ctx.drawImage(c.imgObj, c.x - size / 2, c.y - size / 2, size, size);
             } else {
-                ctx.beginPath(); ctx.fillStyle = c.color; ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath();
+                ctx.fillStyle = c.color;
+                ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+                ctx.fill();
             }
-            // HP
+
+            ctx.globalAlpha = 1.0; // Reset alpha
+
+            // Name label
+            const companionName = c.type === 'ahjie' ? '阿傑' :
+                                 c.type === 'richkid' ? '包子' :
+                                 c.type === 'shanji' ? '山雞' : c.type;
+            ctx.font = 'bold 10px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#000';
+            ctx.fillText(companionName, c.x + 1, c.y - 30 + 1);
+            ctx.fillStyle = '#fff';
+            ctx.fillText(companionName, c.x, c.y - 30);
+
+            // HP Bar
+            const barWidth = 30;
+            const barHeight = 5;
+            const barX = c.x - barWidth / 2;
+            const barY = c.y - 22;
             const pct = Math.max(0, c.hp / c.maxHp);
-            ctx.fillStyle = '#374151'; ctx.fillRect(c.x - 10, c.y - 20, 20, 4);
-            ctx.fillStyle = '#10b981'; ctx.fillRect(c.x - 10, c.y - 20, 20 * pct, 4);
+
+            // Background
+            ctx.fillStyle = '#1f2937';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+
+            // HP fill (color changes based on HP)
+            if (pct > 0.5) {
+                ctx.fillStyle = '#10b981'; // Green
+            } else if (pct > 0.25) {
+                ctx.fillStyle = '#f59e0b'; // Orange
+            } else {
+                ctx.fillStyle = '#ef4444'; // Red
+            }
+            ctx.fillRect(barX, barY, barWidth * pct, barHeight);
+
+            // HP bar border
+            ctx.strokeStyle = '#374151';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(barX, barY, barWidth, barHeight);
         });
     }
 
