@@ -277,6 +277,7 @@ let projectiles = [];
 let enemies = [];
 let particles = [];
 let xpGems = [];
+let healthPacks = []; // Health recovery items
 let damageNumbers = [];
 let newEntitiesQueue = [];
 const MAX_PARTICLES = 150;
@@ -1114,7 +1115,13 @@ function markEnemyDead(e) {
                 });
             }
         }
+        // Always drop XP gem
         newEntitiesQueue.push({ cat: 'gem', obj: { x: e.x, y: e.y, radius: 5, color: '#00ff88', val: 5, dead: false } });
+
+        // 10% chance to drop health pack
+        if (Math.random() < 0.1) {
+            newEntitiesQueue.push({ cat: 'health', obj: { x: e.x, y: e.y, radius: 6, dead: false } });
+        }
     }
 }
 
@@ -1314,6 +1321,7 @@ function showStageTransition() {
     enemies = [];
     projectiles = [];
     xpGems = [];
+    healthPacks = [];
     particles = [];
     damageNumbers = [];
     newEntitiesQueue = [];
@@ -1614,6 +1622,7 @@ function startGame() {
         enemies = [];
         particles = [];
         xpGems = [];
+        healthPacks = [];
         damageNumbers = [];
         newEntitiesQueue = [];
 
@@ -1974,6 +1983,7 @@ function update(dt) {
             if (!item || !item.obj) return;
             if (item.cat === 'enemy' && enemies.length < MAX_ENEMIES) enemies.push(item.obj);
             if (item.cat === 'gem') xpGems.push(item.obj);
+            if (item.cat === 'health') healthPacks.push(item.obj);
             if (item.cat === 'proj') projectiles.push(item.obj);
         });
         newEntitiesQueue = [];
@@ -1988,6 +1998,7 @@ function update(dt) {
     enemies = enemies.filter(e => e && !e.dead);
     projectiles = projectiles.filter(p => p && !p.dead);
     xpGems = xpGems.filter(g => g && !g.dead);
+    healthPacks = healthPacks.filter(h => h && !h.dead);
     particles = particles.filter(p => p && !p.dead);
     damageNumbers = damageNumbers.filter(d => d && !d.dead);
 
@@ -2772,6 +2783,24 @@ function updateEntities(dt) {
         }
     }
 
+    // Health pack pickup
+    for (let h of healthPacks) {
+        if (h.dead) continue;
+        const pickupR = player.stats.pickupRange || 150;
+        if (Math.hypot(h.x - player.x, h.y - player.y) < pickupR) {
+            h.x += (player.x - h.x) * 6 * dt;
+            h.y += (player.y - h.y) * 6 * dt;
+            if (Math.hypot(h.x - player.x, h.y - player.y) < player.radius) {
+                // Heal 20% of max HP
+                const healAmount = Math.floor(player.maxHp * 0.2);
+                player.hp = Math.min(player.maxHp, player.hp + healAmount);
+                updatePlayerHpUi();
+                spawnDamageNumber(player.x, player.y, `+${healAmount}`, '#22c55e');
+                h.dead = true;
+            }
+        }
+    }
+
     damageNumbers.forEach(d => {
         d.x += (d.vx || 0) * dt;
         d.y += (d.vy || -30) * dt;
@@ -3119,6 +3148,34 @@ function draw() {
         ctx.lineTo(g.x, g.y + size);
         ctx.lineTo(g.x - size, g.y);
         ctx.fill();
+
+        ctx.shadowBlur = 0;
+    });
+
+    // Health Packs
+    healthPacks.forEach(h => {
+        if (!h || h.dead) return;
+
+        // Pulsating glow effect
+        const pulse = 1 + Math.sin(state.gameTime * 4 + h.x) * 0.15;
+        const size = h.radius * pulse;
+
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = '#ef4444';
+
+        // Draw red cross (medical symbol)
+        ctx.fillStyle = '#ef4444';
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+
+        // Vertical bar
+        ctx.fillRect(h.x - size * 0.3, h.y - size, size * 0.6, size * 2);
+        // Horizontal bar
+        ctx.fillRect(h.x - size, h.y - size * 0.3, size * 2, size * 0.6);
+
+        // White outline for visibility
+        ctx.strokeRect(h.x - size * 0.3, h.y - size, size * 0.6, size * 2);
+        ctx.strokeRect(h.x - size, h.y - size * 0.3, size * 2, size * 0.6);
 
         ctx.shadowBlur = 0;
     });
