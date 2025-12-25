@@ -1645,7 +1645,7 @@ function startGame() {
         playerHpContainer.style.display = 'block';
         updatePlayerHpUi();
         updateInventoryUI();
-        const stageConfig = STAGE_CONFIGS[state.selectedStage] || STAGE_CONFIGS[1];
+        const stageConfig = STAGE_CONFIGS[state.stage] || STAGE_CONFIGS[1];
         state.map.width = stageConfig.mapWidth || width;
         state.map.height = stageConfig.mapHeight || height;
         state.walls = JSON.parse(JSON.stringify(stageConfig.walls || []));
@@ -3105,9 +3105,11 @@ function draw() {
     const mapW = state.map.width || width;
     const mapH = state.map.height || height;
 
-    // Background Color
-    if (state.selectedStage === 3) {
-        ctx.fillStyle = '#0f172a'; // Dark Forest
+    // Background Color based on current stage
+    if (state.stage === 3) {
+        ctx.fillStyle = '#0f172a'; // Dark Factory
+    } else if (state.stage === 2) {
+        ctx.fillStyle = '#1e3a1e'; // Misty Forest
     } else {
         ctx.fillStyle = '#374151'; // Campus
     }
@@ -3115,7 +3117,10 @@ function draw() {
     ctx.fillRect(state.camera.x - 100, state.camera.y - 100, width + 200, height + 200);
     // Actually efficient to draw only visible, but map size is usually finite.
     // Let's draw the specific map area if it's large.
-    if (state.selectedStage === 3) {
+    if (state.stage === 3) {
+        ctx.fillStyle = '#1e293b'; // Factory Floor (dark slate)
+        ctx.fillRect(0, 0, mapW, mapH);
+    } else if (state.stage === 2) {
         ctx.fillStyle = '#064e3b'; // Forest Floor
         ctx.fillRect(0, 0, mapW, mapH);
     }
