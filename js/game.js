@@ -2162,10 +2162,10 @@ function handleSpawns(dt) {
         if (!bigBossSpawned && (state.gameTime - state.stageStartTime) > 180) { spawnBoss('big'); bigBossSpawned = true; }
     }
 
-    // Calculate difficulty time
-    let difficultyTime = state.gameTime;
+    // Calculate difficulty time (time since current stage started)
+    let difficultyTime = state.gameTime - state.stageStartTime;
     if (state.stage === 2) {
-        difficultyTime = (state.gameTime - state.stageStartTime) * 1.2; // Stage 2 ramps up slightly faster
+        difficultyTime = difficultyTime * 1.2; // Stage 2 ramps up slightly faster
     }
 
     let rate = Math.max(0.1, 0.8 - (difficultyTime / 120) * 0.5);
@@ -2214,7 +2214,9 @@ function spawnEnemyLogic() {
     ex = Math.max(margin, Math.min(ex, mapW - margin));
     ey = Math.max(margin, Math.min(ey, mapH - margin));
 
-    const scale = 1 + (state.gameTime / 100);
+    // Use stage time instead of total game time for enemy scaling
+    const stageTime = state.gameTime - state.stageStartTime;
+    const scale = 1 + (stageTime / 100);
     const r = Math.random();
 
     let type = 'basic';
@@ -2223,36 +2225,36 @@ function spawnEnemyLogic() {
     let color = '#ef4444';
     let radius = 12;
 
-    // Stage-specific enemy types
+    // Stage-specific enemy types (based on stage time)
     if (state.stage === 1) {
         // Chapter 1: School Campus
-        if (state.gameTime > 30 && r > 0.75) {
+        if (stageTime > 30 && r > 0.75) {
             type = 'teacher'; color = '#7f1d1d'; speed = 50; hp = 150 * scale; radius = 14; // Teacher Zombie
-        } else if (state.gameTime > 60 && r > 0.85) {
+        } else if (stageTime > 60 && r > 0.85) {
             type = 'athlete'; color = '#facc15'; speed = 120; hp = 60 * scale; // Athlete Zombie (fast)
-        } else if (state.gameTime > 90 && r > 0.9) {
+        } else if (stageTime > 90 && r > 0.9) {
             type = 'club'; color = '#f97316'; speed = 150; hp = 40 * scale; // Club Zombie (kamikaze)
         } else {
             type = 'student'; color = '#ef4444'; speed = 70; hp = 90 * scale; // Student Zombie
         }
     } else if (state.stage === 2) {
         // Chapter 2: Misty Forest
-        if (state.gameTime > 30 && r > 0.7) {
+        if (stageTime > 30 && r > 0.7) {
             type = 'spore'; color = '#22c55e'; speed = 40; hp = 200 * scale; radius = 16; // Spore Walker (splitter)
-        } else if (state.gameTime > 60 && r > 0.8) {
+        } else if (stageTime > 60 && r > 0.8) {
             type = 'mosquito'; color = '#06b6d4'; speed = 140; hp = 30 * scale; radius = 8; // Giant Mosquito
-        } else if (state.gameTime > 45 && r > 0.85) {
+        } else if (stageTime > 45 && r > 0.85) {
             type = 'dog'; color = '#92400e'; speed = 100; hp = 80 * scale; // Mutant Dog
         } else {
             type = 'hiker'; color = '#15803d'; speed = 65; hp = 100 * scale; // Infected Hiker
         }
     } else if (state.stage === 3) {
         // Chapter 3: Factory
-        if (state.gameTime > 30 && r > 0.75) {
+        if (stageTime > 30 && r > 0.75) {
             type = 'security'; color = '#1f2937'; speed = 55; hp = 180 * scale; radius = 14; // Security Zombie (armored)
-        } else if (state.gameTime > 60 && r > 0.85) {
+        } else if (stageTime > 60 && r > 0.85) {
             type = 'experiment'; color = '#f0fdf4'; speed = 160; hp = 50 * scale; // Test Subject (fast kamikaze)
-        } else if (state.gameTime > 90 && r > 0.9) {
+        } else if (stageTime > 90 && r > 0.9) {
             type = 'mutant'; color = '#10b981'; speed = 90; hp = 140 * scale; // Mass-Produced Mutant
         } else {
             type = 'worker'; color = '#6b7280'; speed = 70; hp = 110 * scale; // Worker Zombie
@@ -2261,7 +2263,7 @@ function spawnEnemyLogic() {
 
     enemies.push({
         id: Math.random(), type: type, x: ex, y: ey, radius: radius, color: color,
-        speed: speed * (1 + (state.gameTime / 600)), hp: hp, maxHp: hp,
+        speed: speed * (1 + (stageTime / 600)), hp: hp, maxHp: hp,
         pushX: 0, pushY: 0, flashTimer: 0, state: 'move', stateTimer: 0, dead: false
     });
 }
