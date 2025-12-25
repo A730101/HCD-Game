@@ -60,6 +60,7 @@
                 <p class="mb-4 text-yellow-400 font-bold">目標只有一個：活下去，直到.....或救援來到！</p>
             </div>
             <button class="btn btn-green" onclick="showCharSelect()">進入選角</button>
+            <button class="btn btn-blue mt-2" onclick="showAchievements()">成就記錄</button>
         </div>
     </div>
 
@@ -71,7 +72,7 @@
 
             <div class="char-grid">
                 <!-- Shooter -->
-                <div class="char-card selected" onclick="selectChar('shooter', this)">
+                <div class="char-card disabled" onclick="selectChar('shooter', this)">
                     <div class="char-icon">🔫</div>
                     <div class="char-name">幾何特工 <span class="text-sm text-blue-400">♂</span></div>
                     <span class="char-role text-blue-300">路人甲</span>
@@ -84,19 +85,22 @@
                 </div>
 
                 <!-- Fisherman -->
-                <div class="char-card" onclick="selectChar('fisherman', this)">
+                <div class="char-card selected" onclick="selectChar('fisherman', this)">
                     <div class="char-icon">🎣</div>
                     <div class="char-name">阿星 <span class="text-sm text-blue-400">♂</span></div>
-                    <span class="char-role text-cyan-300">矛盾釣手</span>
+                    <span class="char-role text-cyan-300">天才釣手 · 社交王</span>
                     <div class="char-desc">
-                        熱愛社交，很會交朋友（雖然專坑朋友）。喜歡用最貴的手機、騎大型重機、吃高級料理。愛玩不愛工作，對家人有求必應。
+                        「再五分鐘就到！（其實還在家睡）」<br><br>
+                        校園傳說中的「神之一手」，能用最薄的網撈起金魚，也能用三寸不爛之舌撈起所有好處。騎重機、用頂配手機、吃高級料理——全靠「借」朋友的錢。<br><br>
+                        朋友們都知道他會坑人，但還是忍不住跟他混在一起。畢竟在末日來臨前，誰知道這些「友情債」還重不重要？<br><br>
+                        <span class="text-cyan-400">「欸，這次真的是我請客！...下次啦下次。」</span>
                     </div>
                     <div class="char-mechanic">✦ 迴旋魚鉤</div>
                     <div class="char-innate">【天才小釣手】拾取範圍 +50%</div>
                 </div>
 
                 <!-- Rich Kid -->
-                <div class="char-card rich-style" onclick="selectChar('richkid', this)">
+                <div class="char-card rich-style disabled" onclick="selectChar('richkid', this)">
                     <div class="char-icon">😎</div>
                     <div class="char-name">包子 <span class="text-sm text-blue-400">♂</span></div>
                     <span class="char-role text-yellow-300">超級富二代</span>
@@ -108,7 +112,7 @@
                 </div>
 
                 <!-- Ah Zhang -->
-                <div class="char-card dog-style selected" onclick="selectChar('ahzhang', this)">
+                <div class="char-card dog-style disabled" onclick="selectChar('ahzhang', this)">
                     <div class="char-icon">🐶</div>
                     <div class="char-name">阿璋 <span class="text-sm text-blue-400">♂</span></div>
                     <span class="char-role text-gray-400">職業單身狗</span>
@@ -120,7 +124,7 @@
                 </div>
 
                 <!-- Ah Jie -->
-                <div class="char-card car-style" onclick="selectChar('ahjie', this)">
+                <div class="char-card car-style disabled" onclick="selectChar('ahjie', this)">
                     <div class="char-icon">🏎️</div>
                     <div class="char-name">阿傑 <span class="text-sm text-blue-400">♂</span></div>
                     <span class="char-role text-red-400">車禍達人</span>
@@ -134,7 +138,7 @@
                 </div>
 
                 <!-- Shan Ji -->
-                <div class="char-card pink-style" onclick="selectChar('shanji', this)">
+                <div class="char-card pink-style disabled" onclick="selectChar('shanji', this)">
                     <div class="char-icon">💃</div>
                     <div class="char-name">山雞 <span class="text-sm text-pink-400">♀</span></div>
                     <span class="char-role text-pink-400">工作狂？？</span>
@@ -146,7 +150,7 @@
                 </div>
 
                 <!-- Ah Cheng -->
-                <div class="char-card ai-style" onclick="selectChar('ahcheng', this)">
+                <div class="char-card ai-style disabled" onclick="selectChar('ahcheng', this)">
                     <div class="char-icon">🤖</div>
                     <div class="char-name">阿程 <span class="text-sm text-blue-400">♂</span></div>
                     <span class="char-role text-green-400">AI和我</span>
@@ -160,7 +164,7 @@
                 </div>
 
                 <!-- Yao Ge -->
-                <div class="char-card scam-style" onclick="selectChar('yaoge', this)">
+                <div class="char-card scam-style disabled" onclick="selectChar('yaoge', this)">
                     <div class="char-icon">🤑</div>
                     <div class="char-name">耀哥 <span class="text-sm text-blue-400">♂</span></div>
                     <span class="char-role text-purple-400">詐騙集團</span>
@@ -197,6 +201,28 @@
             <p class="text-white text-lg">存活時間: <span id="final-time" class="text-blue-400">00:00</span></p>
             <p class="text-white text-lg mb-6">擊殺數: <span id="final-kills" class="text-red-400">0</span></p>
             <button class="btn" onclick="location.reload()">重新挑戰</button>
+        </div>
+    </div>
+
+    <!-- Achievements Screen -->
+    <div id="achievements-screen" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <h1 class="text-yellow-400 mb-4 text-2xl font-bold">🏆 成就記錄</h1>
+
+            <div class="mb-6">
+                <h2 class="text-green-400 text-xl mb-3">📖 結局收集</h2>
+                <div id="endings-list" class="space-y-2"></div>
+            </div>
+
+            <div class="mb-6">
+                <h2 class="text-blue-400 text-xl mb-3">📊 遊戲統計</h2>
+                <div id="stats-list" class="text-white space-y-1"></div>
+            </div>
+
+            <div class="flex gap-2">
+                <button class="btn btn-green" onclick="closeAchievements()">返回</button>
+                <button class="btn btn-red" onclick="resetAchievements()">重置成就</button>
+            </div>
         </div>
     </div>
 
