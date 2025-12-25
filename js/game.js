@@ -32,6 +32,12 @@ const SoundMgr = {
     shoot: function () { this.playTone(400, 'triangle', 0.1, 0.05, -300); },
     hit: function () { this.playTone(150, 'sawtooth', 0.1, 0.05, -50); },
     explode: function () { this.playTone(100, 'square', 0.3, 0.1, -80); },
+    pickup: function () { this.playTone(600, 'sine', 0.15, 0.08, 200); },
+    heal: function () {
+        if (this.muted || !this.ctx) return;
+        setTimeout(() => this.playTone(523, 'sine', 0.1, 0.08), 0);
+        setTimeout(() => this.playTone(659, 'sine', 0.15, 0.08), 80);
+    },
     levelup: function () {
         if (this.muted || !this.ctx) return;
         // Simple Arpeggio
@@ -939,6 +945,11 @@ function updateInventoryUI() {
 
 function fireWeapon(target, originX, originY, isBounce = false, bounceDamage = 0, remainingBounces = 0, weaponOverride = null) {
     try {
+        // Play shoot sound only for initial shots, not bounces
+        if (!isBounce) {
+            SoundMgr.shoot();
+        }
+
         const startX = originX || player.x;
         const startY = originY || player.y;
         // If it's a scam box, we might want to throw it near the player, not directly at an enemy sometimes
@@ -1050,6 +1061,9 @@ function markEnemyDead(e) {
     state.kills++;
     state.killCount++;
     uiKills.textContent = state.kills;
+
+    // Play death sound
+    SoundMgr.explode();
 
     // Trigger Kill Streak Dialog
     if (state.kills % 20 === 0) triggerDialog('killStreak');
@@ -1183,6 +1197,7 @@ function levelUp() {
     state.level++;
     uiLevel.textContent = state.level;
     state.paused = true;
+    SoundMgr.levelup(); // Play level up sound
     triggerDialog('levelUp'); // Dialog on level up
 
     // Trigger companion dialogue on level up
@@ -2775,7 +2790,9 @@ function updateEntities(dt) {
             g.x += (player.x - g.x) * 6 * dt;
             g.y += (player.y - g.y) * 6 * dt;
             if (Math.hypot(g.x - player.x, g.y - player.y) < player.radius) {
-                gainXp(g.val); g.dead = true;
+                gainXp(g.val);
+                g.dead = true;
+                SoundMgr.pickup(); // Pickup sound
 
                 // Trigger companion dialogue on pickup (low chance)
                 if (Math.random() < 0.05) { // 5% chance
@@ -2798,6 +2815,7 @@ function updateEntities(dt) {
                 player.hp = Math.min(player.maxHp, player.hp + healAmount);
                 updatePlayerHpUi();
                 spawnDamageNumber(player.x, player.y, `+${healAmount}`, '#22c55e');
+                SoundMgr.heal(); // Heal sound
                 h.dead = true;
             }
         }
@@ -2863,9 +2881,11 @@ function checkCollisions() {
                         player.shield = 0;
                         player.hp -= rem;
                         spawnDamageNumber(player.x, player.y, `-${Math.ceil(rem)}`, "#ef4444");
+                        SoundMgr.hurt(); // Player hurt sound
                     }
                 } else {
                     player.hp -= finalDmg;
+                    SoundMgr.hurt(); // Player hurt sound
                 }
 
                 player.invulnTimer = 0.5;
@@ -2958,6 +2978,7 @@ function checkCollisions() {
                 }
 
                 e.hp -= dmg;
+                SoundMgr.hit(); // Enemy hit sound
 
                 e.flashTimer = 0.1;
 
