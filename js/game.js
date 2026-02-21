@@ -32,6 +32,12 @@ const SoundMgr = {
     shoot: function () { this.playTone(400, 'triangle', 0.1, 0.05, -300); },
     hit: function () { this.playTone(150, 'sawtooth', 0.1, 0.05, -50); },
     explode: function () { this.playTone(100, 'square', 0.3, 0.1, -80); },
+    pickup: function () { this.playTone(600, 'sine', 0.15, 0.08, 200); },
+    heal: function () {
+        if (this.muted || !this.ctx) return;
+        setTimeout(() => this.playTone(523, 'sine', 0.1, 0.08), 0);
+        setTimeout(() => this.playTone(659, 'sine', 0.15, 0.08), 80);
+    },
     levelup: function () {
         if (this.muted || !this.ctx) return;
         // Simple Arpeggio
@@ -51,6 +57,96 @@ const SoundMgr = {
         // Dark bass drone
         this.playTone(55, 'triangle', 0.5, 0.02);
         setTimeout(() => this.loopNote(), 1000); // 60 BPM pulse
+    }
+};
+
+// --- ACHIEVEMENT MANAGER ---
+const AchievementManager = {
+    data: {
+        endings: {
+            ending_destroy: false,
+            ending_cure: false,
+            ending_escape: false,
+            ending_richkid_love: false,
+            ending_shanji_selfish: false,
+            ending_tyrant: false
+        },
+        stats: {
+            totalGames: 0,
+            totalKills: 0,
+            bestTime: null,
+            maxKills: 0,
+            completions: 0
+        }
+    },
+
+    init: function() {
+        const saved = localStorage.getItem('hcd_achievements');
+        if (saved) {
+            try {
+                this.data = JSON.parse(saved);
+            } catch (e) {
+                console.warn('Failed to load achievements:', e);
+            }
+        }
+    },
+
+    save: function() {
+        localStorage.setItem('hcd_achievements', JSON.stringify(this.data));
+    },
+
+    unlockEnding: function(endingType) {
+        if (this.data.endings[endingType] !== undefined) {
+            this.data.endings[endingType] = true;
+            this.data.stats.completions++;
+            this.save();
+        }
+    },
+
+    recordGameOver: function(time, kills) {
+        this.data.stats.totalGames++;
+        this.data.stats.totalKills += kills;
+        if (kills > this.data.stats.maxKills) {
+            this.data.stats.maxKills = kills;
+        }
+        this.save();
+    },
+
+    recordCompletion: function(time, kills) {
+        this.data.stats.totalGames++;
+        this.data.stats.totalKills += kills;
+        if (kills > this.data.stats.maxKills) {
+            this.data.stats.maxKills = kills;
+        }
+        if (!this.data.stats.bestTime || time < this.data.stats.bestTime) {
+            this.data.stats.bestTime = time;
+        }
+        this.save();
+    },
+
+    reset: function() {
+        this.data = {
+            endings: {
+                ending_destroy: false,
+                ending_cure: false,
+                ending_escape: false,
+                ending_richkid_love: false,
+                ending_shanji_selfish: false
+            },
+            stats: {
+                totalGames: 0,
+                totalKills: 0,
+                bestTime: null,
+                maxKills: 0,
+                completions: 0
+            }
+        };
+        this.save();
+    },
+
+    getProgress: function() {
+        const unlocked = Object.values(this.data.endings).filter(v => v).length;
+        return `${unlocked}/5`;
     }
 };
 
@@ -78,16 +174,52 @@ let lastTime = 0;
 
 const state = {
     running: false, paused: false, kills: 0, level: 1, xp: 0, xpToNextLevel: 10,
-    gameTime: 0, selectedChar: 'ahzhang', selectedStage: 1, bossActive: false, bossObj: null, lastDialogTime: 0,
+    gameTime: 0, selectedChar: 'fisherman', selectedStage: 1, bossActive: false, bossObj: null, lastDialogTime: 0,
     stage: 1, stage1Cleared: false, stageStartTime: 0, companions: [],
     camera: { x: 0, y: 0 },
     map: { width: 0, height: 0 },
-    walls: [] // Array of {x,y,w,h}
+    walls: [], // Array of {x,y,w,h}
+    lastCompanionDialogTime: 0, // Track companion dialogue cooldown
+    companionDialogCooldown: 15, // Seconds between companion dialogues
+    killCount: 0, // Track kills for companion dialogue triggers
+    abandonedCompanions: [], // Track abandoned companions who will become enemies
+    abandonedSpawnTimer: 0 // Timer for spawning abandoned companions
 };
 
 const STAGE_CONFIGS = {
-    1: { name: '慈幼工商 (校園)', mapWidth: 0, mapHeight: 0, walls: [] }, // 0 means use screen size
-    3: {
+    1: {
+        name: '慈幼工商 (校園)',
+        mapWidth: 2000,
+        mapHeight: 2000,
+        walls: [
+            // Outer Walls
+            { x: -50, y: -50, w: 2100, h: 50 }, // Top
+            { x: -50, y: 2000, w: 2100, h: 50 }, // Bottom
+            { x: -50, y: 0, w: 50, h: 2000 }, // Left
+            { x: 2000, y: 0, w: 50, h: 2000 }, // Right
+
+            // School Buildings
+            // Main Building (Top-left)
+            { x: 200, y: 200, w: 600, h: 300 },
+            { x: 200, y: 500, w: 100, h: 200 }, // Left wing
+            { x: 700, y: 500, w: 100, h: 200 }, // Right wing
+
+            // Classroom Building (Top-right)
+            { x: 1200, y: 200, w: 500, h: 400 },
+
+            // Cafeteria (Bottom-left)
+            { x: 200, y: 1400, w: 400, h: 300 },
+
+            // Gym (Bottom-right)
+            { x: 1400, y: 1400, w: 400, h: 400 },
+
+            // Courtyard obstacles
+            { x: 900, y: 800, w: 200, h: 200 }, // Central fountain
+            { x: 500, y: 900, w: 150, h: 100 }, // Benches
+            { x: 1300, y: 900, w: 150, h: 100 }
+        ]
+    },
+    2: {
         name: '迷霧森林 (迷宮)',
         mapWidth: 2400,
         mapHeight: 2400,
@@ -97,13 +229,46 @@ const STAGE_CONFIGS = {
             { x: -50, y: 2400, w: 2500, h: 50 }, // Bottom
             { x: -50, y: 0, w: 50, h: 2400 }, // Left
             { x: 2400, y: 0, w: 50, h: 2400 }, // Right
-            // Maze Blocks (Simple Layout)
-            { x: 400, y: 400, w: 200, h: 600 },
-            { x: 800, y: 200, w: 600, h: 200 },
-            { x: 1600, y: 400, w: 200, h: 800 },
-            { x: 400, y: 1400, w: 800, h: 200 },
-            { x: 1400, y: 1400, w: 600, h: 200 },
-            { x: 1000, y: 800, w: 400, h: 400 } // Central Block
+
+            // Dense Forest Maze
+            { x: 300, y: 300, w: 150, h: 600 },
+            { x: 600, y: 200, w: 150, h: 400 },
+            { x: 900, y: 400, w: 150, h: 700 },
+            { x: 1200, y: 200, w: 150, h: 500 },
+            { x: 1500, y: 500, w: 150, h: 600 },
+            { x: 1800, y: 300, w: 150, h: 800 },
+
+            { x: 400, y: 1200, w: 600, h: 150 },
+            { x: 1100, y: 1400, w: 600, h: 150 },
+            { x: 600, y: 1700, w: 500, h: 150 },
+            { x: 1400, y: 1800, w: 400, h: 150 },
+
+            // Central clearing
+            { x: 1000, y: 900, w: 400, h: 100 },
+            { x: 1000, y: 1200, w: 400, h: 100 }
+        ]
+    },
+    3: {
+        name: '東方錶面工廠 (終章)',
+        mapWidth: 2800,
+        mapHeight: 2800,
+        walls: [
+            // Outer Walls
+            { x: -50, y: -50, w: 2900, h: 50 },
+            { x: -50, y: 2800, w: 2900, h: 50 },
+            { x: -50, y: 0, w: 50, h: 2800 },
+            { x: 2800, y: 0, w: 50, h: 2800 },
+            // Factory Rooms and Corridors
+            { x: 300, y: 300, w: 400, h: 100 }, // Top-left room wall
+            { x: 300, y: 600, w: 100, h: 400 },
+            { x: 1000, y: 300, w: 100, h: 600 },
+            { x: 1400, y: 500, w: 600, h: 100 },
+            { x: 2000, y: 800, w: 100, h: 800 },
+            { x: 500, y: 1500, w: 800, h: 100 },
+            { x: 1600, y: 1800, w: 400, h: 400 },
+            { x: 800, y: 2100, w: 600, h: 100 },
+            // Central Factory Core
+            { x: 1200, y: 1200, w: 400, h: 400 }
         ]
     }
 };
@@ -118,6 +283,7 @@ let projectiles = [];
 let enemies = [];
 let particles = [];
 let xpGems = [];
+let healthPacks = []; // Health recovery items
 let damageNumbers = [];
 let newEntitiesQueue = [];
 const MAX_PARTICLES = 150;
@@ -146,6 +312,63 @@ function showDialog(text, duration = 3000) {
         bubble.style.opacity = '0';
     }, duration);
 }
+
+// --- COMPANION DIALOGUE SYSTEM ---
+function triggerCompanionDialogue(eventType) {
+    // Only trigger if we have companions and fisherman is selected
+    if (state.selectedChar !== 'fisherman' || state.companions.length === 0) return;
+
+    // Check cooldown
+    if (state.gameTime - state.lastCompanionDialogTime < state.companionDialogCooldown) return;
+
+    // Randomly select a companion
+    const companion = state.companions[Math.floor(Math.random() * state.companions.length)];
+    if (!companion || !companion.type) return;
+
+    // Get dialogue data
+    const dialogueData = companionDialogues[companion.type];
+    if (!dialogueData || !dialogueData[eventType]) return;
+
+    const dialogueOptions = dialogueData[eventType];
+    if (dialogueOptions.length === 0) return;
+
+    // Select random dialogue
+    const dialogue = dialogueOptions[Math.floor(Math.random() * dialogueOptions.length)];
+
+    // Display dialogue
+    const starLine = dialogue.star || null;
+    const companionLine = dialogue[companion.type] || null;
+
+    if (starLine && companionLine) {
+        // Show both lines with a delay
+        showDialog(`阿星: ${starLine}`, 4500);
+        setTimeout(() => {
+            const companionName = companion.type === 'ahjie' ? '阿傑' :
+                                 companion.type === 'richkid' ? '包子' : '山雞';
+            showDialog(`${companionName}: ${companionLine}`, 4500);
+        }, 5000);
+    } else if (starLine) {
+        showDialog(`阿星: ${starLine}`, 4500);
+    } else if (companionLine) {
+        const companionName = companion.type === 'ahjie' ? '阿傑' :
+                             companion.type === 'richkid' ? '包子' : '山雞';
+        showDialog(`${companionName}: ${companionLine}`, 4500);
+    }
+
+    state.lastCompanionDialogTime = state.gameTime;
+}
+
+// Trigger random companion dialogue periodically
+function tryRandomCompanionDialogue() {
+    if (state.selectedChar !== 'fisherman' || state.companions.length === 0) return;
+    if (state.gameTime - state.lastCompanionDialogTime < state.companionDialogCooldown) return;
+
+    // 10% chance every check
+    if (Math.random() < 0.1) {
+        triggerCompanionDialogue('random');
+    }
+}
+
 // --- STAGE SELECT ---
 function showStageSelection() {
     document.getElementById('start-screen').style.display = 'none';
@@ -181,15 +404,14 @@ function selectStage(stageId) {
     showIntroStory();
 }
 
-// Modify selectChar to go to Stage Select
+// Modify selectChar to start game directly on Chapter 1
 function selectChar(charId) {
     state.selectedChar = charId;
 
-    // Highlight selection (optional visual feedback)
-    document.querySelectorAll('.char-card').forEach(el => el.classList.remove('ring-4', 'ring-blue-500'));
-    // We don't have direct ref to element here easily without event, but that's fine.
-
-    showStageSelection();
+    // Start game directly on Chapter 1
+    state.selectedStage = 1;
+    state.stage = 1;
+    showIntroStory();
 }
 // --- TRIGGER DIALOG FUNCTION ---
 function triggerDialog(type) {
@@ -237,11 +459,14 @@ function spawnCompanion(type) {
         x: player.x, y: player.y,
         radius: 14,
         color: '#fff',
-        hp: 100, maxHp: 100,
+        hp: 150, maxHp: 150,  // Increased HP
         level: 1, // Start Level
         dead: false, respawnTimer: 0,
         lastAction: 0,
         actionRate: 1.0, // Default action rate
+        invulnTimer: 0, // Invulnerability timer
+        regenTimer: 0, // Health regeneration timer
+        regenRate: 5 // HP regenerated per second
     };
 
     // Load Image
@@ -308,6 +533,20 @@ function updateCompanions(dt) {
                 spawnDamageNumber(player.x, player.y, `${c.type.toUpperCase()} REVIVED!`, "#bef264");
             }
             return;
+        }
+
+        // Update invulnerability timer
+        if (c.invulnTimer > 0) {
+            c.invulnTimer -= dt;
+        }
+
+        // Health regeneration
+        c.regenTimer += dt;
+        if (c.regenTimer >= 1.0) { // Every 1 second
+            c.regenTimer = 0;
+            if (c.hp < c.maxHp) {
+                c.hp = Math.min(c.maxHp, c.hp + c.regenRate);
+            }
         }
 
         // 1. Movement logic (Follow Player)
@@ -462,6 +701,76 @@ function triggerCompanionBanter() {
 
         showDialog(pool[Math.floor(Math.random() * pool.length)], 3500);
     }
+}
+
+// Companion takes damage
+function damageCompanion(c, damage) {
+    if (c.dead || c.invulnTimer > 0) return;
+
+    c.hp -= damage;
+    c.invulnTimer = 0.5; // 0.5 seconds invulnerability
+    spawnDamageNumber(c.x, c.y, `-${Math.ceil(damage)}`, "#ef4444");
+
+    // Check if companion died
+    if (c.hp <= 0) {
+        c.hp = 0;
+        c.dead = true;
+
+        const companionName = c.type === 'ahjie' ? '阿傑' :
+                             c.type === 'richkid' ? '包子' :
+                             c.type === 'shanji' ? '山雞' : c.type;
+
+        // 50% chance to become a boss
+        if (Math.random() < 0.5) {
+            spawnCompanionBoss(c);
+            showDialog(`${companionName} 失控了！`, 3000);
+        } else {
+            showDialog(`${companionName} 倒下了...`, 3000);
+            c.respawnTimer = 30; // Respawn in 30 seconds
+        }
+    }
+}
+
+// Spawn a corrupted companion as a boss
+function spawnCompanionBoss(companion) {
+    // Ensure boss spawns within map bounds
+    const mapW = state.map.width || 2000;
+    const mapH = state.map.height || 2000;
+    const margin = 100;
+
+    const boss = {
+        id: Math.random(),
+        isBoss: true,
+        x: Math.max(margin, Math.min(companion.x, mapW - margin)),
+        y: Math.max(margin, Math.min(companion.y, mapH - margin)),
+        pushX: 0,
+        pushY: 0,
+        flashTimer: 0,
+        state: 'move',
+        dead: false,
+        phase: 1,
+        type: `corrupted_${companion.type}`,
+        bossName: companion.type === 'ahjie' ? '失控的阿傑' :
+                 companion.type === 'richkid' ? '失控的包子' :
+                 companion.type === 'shanji' ? '失控的山雞' : '失控的隊友',
+        radius: 40,
+        color: '#9333ea', // Purple for corrupted
+        hp: 8000,
+        maxHp: 8000,
+        speed: 70
+    };
+
+    state.bossActive = true;
+    state.bossObj = boss;
+    enemies.push(boss);
+
+    // Remove companion from list after delay
+    setTimeout(() => {
+        const index = state.companions.indexOf(companion);
+        if (index > -1) {
+            state.companions.splice(index, 1);
+        }
+    }, 100);
 }
 
 function performCompanionAction(c) {
@@ -636,6 +945,11 @@ function updateInventoryUI() {
 
 function fireWeapon(target, originX, originY, isBounce = false, bounceDamage = 0, remainingBounces = 0, weaponOverride = null) {
     try {
+        // Play shoot sound only for initial shots, not bounces
+        if (!isBounce) {
+            SoundMgr.shoot();
+        }
+
         const startX = originX || player.x;
         const startY = originY || player.y;
         // If it's a scam box, we might want to throw it near the player, not directly at an enemy sometimes
@@ -745,22 +1059,64 @@ function markEnemyDead(e) {
     if (!e || e.dead) return;
     e.dead = true;
     state.kills++;
+    state.killCount++;
     uiKills.textContent = state.kills;
+
+    // Play death sound
+    SoundMgr.explode();
 
     // Trigger Kill Streak Dialog
     if (state.kills % 20 === 0) triggerDialog('killStreak');
+
+    // Trigger companion dialogue on kill (every 5 kills)
+    if (state.killCount % 5 === 0) {
+        triggerCompanionDialogue('onKill');
+    }
 
     if (e.isBoss) {
         state.bossActive = false;
         state.bossObj = null;
 
-        // Trigger Victory Line if it was Big Boss
-        if (e.type === 'bigBoss') {
+        // Check if it's the final boss of each chapter
+        const isFinalBoss = (
+            (state.stage === 1 && e.type === 'principal') ||
+            (state.stage === 2 && e.type === 'guardian') ||
+            (state.stage === 3 && e.type === 'director')
+        );
+
+        if (isFinalBoss) {
+            // Show victory dialog
             const lines = charConfigs[state.selectedChar].dialogs;
-            if (lines && lines.final) showDialog(lines.final, 5000);
+            if (lines && lines.final) showDialog(lines.final, 3000);
+
+            // Trigger chapter transition after a delay
+            setTimeout(() => {
+                if (state.stage < 3) {
+                    showStageTransition();
+                } else {
+                    // Chapter 3 complete - show ending choices
+                    showEndingChoice();
+                }
+            }, 3000);
         }
 
-        newEntitiesQueue.push({ cat: 'gem', obj: { x: e.x, y: e.y, radius: 10, color: '#fbbf24', val: 500, dead: false } });
+        // Calculate boss XP reward
+        // Mid bosses: enough XP for 3 levels at current level
+        // Final bosses: even more XP for 3 levels with buffer
+        let bossXP = 500; // Default
+
+        if (isFinalBoss) {
+            // Final boss: 3x current level requirement for guaranteed 3 levels
+            bossXP = Math.floor(state.xpToNextLevel * 3.6);
+        } else {
+            // Mid boss: 3x current level requirement
+            bossXP = Math.floor(state.xpToNextLevel * 3.6);
+        }
+
+        // Minimum XP to ensure value even at level 1
+        bossXP = Math.max(bossXP, 150);
+
+        newEntitiesQueue.push({ cat: 'gem', obj: { x: e.x, y: e.y, radius: 10, color: '#fbbf24', val: bossXP, dead: false } });
     } else {
         if (e.type === 'splitter') {
             for (let k = 0; k < 2; k++) {
@@ -773,7 +1129,13 @@ function markEnemyDead(e) {
                 });
             }
         }
+        // Always drop XP gem
         newEntitiesQueue.push({ cat: 'gem', obj: { x: e.x, y: e.y, radius: 5, color: '#00ff88', val: 5, dead: false } });
+
+        // 10% chance to drop health pack
+        if (Math.random() < 0.1) {
+            newEntitiesQueue.push({ cat: 'health', obj: { x: e.x, y: e.y, radius: 6, dead: false } });
+        }
     }
 }
 
@@ -835,7 +1197,13 @@ function levelUp() {
     state.level++;
     uiLevel.textContent = state.level;
     state.paused = true;
+    SoundMgr.levelup(); // Play level up sound
     triggerDialog('levelUp'); // Dialog on level up
+
+    // Trigger companion dialogue on level up
+    setTimeout(() => {
+        triggerCompanionDialogue('onLevelUp');
+    }, 1000);
 
     const pool = [...commonUpgrades];
     if (charUpgrades[state.selectedChar]) pool.push(...charUpgrades[state.selectedChar]);
@@ -933,6 +1301,9 @@ function gameOver() {
     const finalKills = document.getElementById('final-kills');
     const gameOverScreen = document.getElementById('game-over-screen');
 
+    // Record game stats
+    AchievementManager.recordGameOver(state.gameTime, state.kills);
+
     if (finalChar) finalChar.textContent = config.name;
     if (deathQuote) deathQuote.textContent = config.deathQuote;
     if (finalTime) finalTime.textContent = uiTimer.textContent;
@@ -949,26 +1320,23 @@ function showStageTransition() {
     const screen = document.getElementById('stage-transition-screen');
     screen.style.display = 'flex';
 
-    // Set Header to "关卡完成！"
     const header = screen.querySelector('h2');
     if (header) header.textContent = "關卡完成！";
 
-    // Special logic for Shan Ji
-    if (state.selectedChar === 'shanji') {
-        storyText.innerText = "森林入口處，妳看見一個熟悉的富二代身影狼狽地卡在樹叢裡...\n\n包子：『學姐！！救我！！我會聽話的！！』\n妳可以選擇讓他當跟班，雖然他沒什麼戰力，但至少能擋個子彈？";
-        btnContainer.innerHTML = `
-            <button class="btn btn-green" onclick="continueToNextStage(true)">勉強讓他跟（獲得包子跟班）</button>
-            <button class="btn" onclick="continueToNextStage(false)">自己走（無視他）</button>
-        `;
-    } else {
-        storyText.textContent = config.forestStory;
-        btnContainer.innerHTML = `<button class="btn btn-green" onclick="continueToNextStage(false)">進入森林</button>`;
-    }
+    // Get story text based on current stage (ending text for completed stage)
+    const storyIndex = (state.stage === 1) ? 2 : 7; // Index 2 for stage 1 ending, index 7 for stage 2 ending
+    const storyLine = config.forestStory[storyIndex] || "準備進入下一章...";
+
+    storyText.innerHTML = storyLine.replace(/\n/g, '<br>');
+
+    const nextStageName = state.stage === 1 ? "第二章：迷霧森林" : "第三章：錶面之下";
+    btnContainer.innerHTML = `<button class="btn btn-green" onclick="continueToNextStage()">進入${nextStageName}</button>`;
 
     // Clear entities
     enemies = [];
     projectiles = [];
     xpGems = [];
+    healthPacks = [];
     particles = [];
     damageNumbers = [];
     newEntitiesQueue = [];
@@ -980,18 +1348,154 @@ function initCompanion(type) {
     spawnCompanion(type);
 }
 
+function showEndingChoice() {
+    state.paused = true;
+    const config = charConfigs[state.selectedChar];
+    const storyText = document.getElementById('stage-story-text');
+    const btnContainer = document.getElementById('stage-btn-container');
 
-function continueToNextStage(withCompanion) {
-    document.getElementById('stage-transition-screen').style.display = 'none';
+    const screen = document.getElementById('stage-transition-screen');
+    screen.style.display = 'flex';
 
+    const header = screen.querySelector('h2');
+    if (header) header.textContent = "抉擇時刻";
+
+    // Check companions for special endings
+    const hasRichkid = state.companions.some(c => c.type === 'richkid');
+    const hasShanji = state.companions.some(c => c.type === 'shanji');
+
+    // Get the ending choice story (index 10 in forestStory)
+    const choiceStory = config.forestStory[10];
+    if (choiceStory && choiceStory.text) {
+        storyText.innerHTML = choiceStory.text.replace(/\n/g, '<br>');
+
+        // Create buttons for choices
+        btnContainer.innerHTML = '';
+
+        // Add original ending choices
+        if (choiceStory.choices) {
+            choiceStory.choices.forEach((choice, idx) => {
+                const btn = document.createElement('button');
+                btn.className = idx === 0 ? 'btn btn-green' : 'btn';
+                btn.textContent = choice.text;
+                btn.onclick = () => triggerEnding(choice.action);
+                btnContainer.appendChild(btn);
+            });
+        }
+
+        // Add companion-specific endings
+        if (hasRichkid) {
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-pink';
+            btn.textContent = '和包子一起離開，開始新的人生';
+            btn.onclick = () => triggerEnding('ending_richkid_love');
+            btnContainer.appendChild(btn);
+        }
+
+        if (hasShanji) {
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-purple';
+            btn.textContent = '和山雞結盟，各取所需';
+            btn.onclick = () => triggerEnding('ending_shanji_selfish');
+            btnContainer.appendChild(btn);
+        }
+
+        // Dark path ending - only if enslaved Shanji
+        if (state.enslavedShanji) {
+            // Replace story text with dark path ending setup
+            storyText.innerHTML = "工廠深處，你找到了病毒核心樣本。<br><br>耀哥的身影早已消失，只剩下你和被奴役的山雞。<br><br>她的眼神已經失去了光彩，只剩下恐懼和服從。<br><br>你握著樣本，感受著絕對的權力...<br><br>在這個末日世界，你已經踏上了最黑暗的道路。";
+
+            // Clear previous buttons and show only dark ending
+            btnContainer.innerHTML = '';
+            const darkBtn = document.createElement('button');
+            darkBtn.className = 'btn';
+            darkBtn.style.background = 'linear-gradient(45deg, #450a0a, #1c0a00)';
+            darkBtn.style.boxShadow = '0 4px 20px rgba(127, 29, 29, 0.8)';
+            darkBtn.style.border = '2px solid #7f1d1d';
+            darkBtn.style.fontSize = '1.1rem';
+            darkBtn.textContent = '👁️ 建立你的末日帝國';
+            darkBtn.onclick = () => triggerEnding('ending_tyrant');
+            btnContainer.appendChild(darkBtn);
+        }
+    } else {
+        // Fallback if no ending choice defined
+        storyText.innerHTML = "你成功活了下來...";
+        btnContainer.innerHTML = `<button class="btn btn-green" onclick="location.reload()">重新開始</button>`;
+    }
+}
+
+function triggerEnding(endingType) {
+    // Show ending based on choice
+    const storyText = document.getElementById('stage-story-text');
+    const btnContainer = document.getElementById('stage-btn-container');
+    const header = document.querySelector('#stage-transition-screen h2');
+
+    if (header) header.textContent = "結局";
+
+    let endingText = "";
+    let endingTitle = "";
+
+    switch(endingType) {
+        case 'ending_destroy':
+            endingTitle = "必要之惡";
+            endingText = "工廠在巨大的爆炸中化為灰燼。\n\n你看著遠處的火光，耀哥的身影消失在火海中。\n\n病毒被徹底消滅了，但所有感染者也都....\n\n「有些代價，必須有人付出。」";
+            break;
+        case 'ending_cure':
+            endingTitle = "新的開始";
+            endingText = "你帶著病毒樣本逃出工廠。\n\n耀哥口中的科學家成功研發出解藥。\n\n三個月後，校園逐漸恢復生機。\n\n你和朋友們在重建的釣魚池旁烤肉。\n\n「本來約好的烤肉，總算能吃了...雖然遲了點。」";
+            break;
+        case 'ending_escape':
+            endingTitle = "流浪者";
+            endingText = "你推開耀哥，帶著樣本獨自逃離。\n\n身後傳來他絕望的吼聲。\n\n你騎著阿傑的改裝車，一路向西。\n\n「真相太沉重...不如一路向西，釣遍所有的河。」";
+            break;
+        case 'ending_richkid_love':
+            endingTitle = "禁忌之愛";
+            endingText = "「學長...這次換我保護你。」包子握緊你的手。\n\n你們帶著樣本逃出工廠，遠離這個瘋狂的世界。\n\n在海邊的小屋裡，你教他釣魚，他教你享受生活。\n\n「以前我用錢買不到的東西，現在都有了。」包子笑著說。\n\n「釣魚嗎？」你問。\n\n「不...是你啊，學長。」\n\n夕陽下，兩個身影緊緊相依。";
+            break;
+        case 'ending_shanji_selfish':
+            endingTitle = "利益同盟";
+            endingText = "「合作愉快，阿星。」山雞冷笑著收起樣本。\n\n你們各取所需：她得到了病毒樣本，你得到了生存的資源。\n\n「你不怕我背叛你？」你問。\n\n「彼此彼此。但至少現在，我們都需要對方活著。」\n\n在這個崩壞的世界裡，你們建立了一個小型生存基地。\n\n沒有愛，沒有信任，只有利益交換。\n\n但或許...這就是末日中最真實的關係。";
+            break;
+        case 'ending_tyrant':
+            endingTitle = "🔴 暴君降臨";
+            endingText = "你利用病毒樣本，控制了整個倖存者營地。\n\n阿傑和包子曾經試圖復仇，但都被你殘忍地鎮壓。\n\n山雞成為你的奴隸，她的群體成為你的私人軍隊。\n\n恐懼，是你統治的基石。\n力量，是你唯一的語言。\n\n三個月後，你建立了末日新秩序。\n倖存者們在你的鐵腕統治下苟活。\n\n「這就是弱肉強食的世界...而我，是最強的掠食者。」\n\n你站在工廠頂端，俯視著被奴役的人們。\n\n沒有道德，沒有人性，只有絕對的權力。\n\n━━━━━━━━━━━━━━━━\n\n【極端黑暗結局】\n\n你拋棄了所有人性，成為了末日暴君。\n在這個崩壞的世界裡，你選擇了最殘酷的生存方式。\n\n歷史會記住你的名字...作為人類墮落的象徵。";
+            break;
+        default:
+            endingTitle = "存活";
+            endingText = "你活下來了。";
+    }
+
+    // Record achievement
+    AchievementManager.unlockEnding(endingType);
+    AchievementManager.recordCompletion(state.gameTime, state.kills);
+
+    // Display ending with stats
+    const timeStr = formatTime(state.gameTime);
+    storyText.innerHTML = `
+        <div style="font-size: 1.5rem; color: #fbbf24; margin-bottom: 1rem;">${endingTitle}</div>
+        ${endingText.replace(/\n/g, '<br>')}
+        <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #555; font-size: 0.9rem; color: #aaa;">
+            <div>⏱️ 通關時間：<span style="color: #4ade80;">${timeStr}</span></div>
+            <div>💀 總擊殺數：<span style="color: #f87171;">${state.kills}</span></div>
+            <div style="margin-top: 0.5rem; color: #fbbf24;">🎉 結局已解鎖！</div>
+        </div>
+    `;
+    btnContainer.innerHTML = `<button class="btn btn-green" onclick="location.reload()">重新開始</button>`;
+}
+
+function continueToNextStage() {
     // 1. Advance Stage
-    state.stage = 2;
+    state.stage++;
     state.stageStartTime = state.gameTime;
-    state.paused = false;
 
-    // 2. Reset Player Position
-    player.x = width / 2;
-    player.y = height / 2;
+    // 2. Reset Player Position and Map
+    const stageConfig = STAGE_CONFIGS[state.stage] || STAGE_CONFIGS[1];
+    state.map.width = stageConfig.mapWidth || width;
+    state.map.height = stageConfig.mapHeight || height;
+    state.walls = JSON.parse(JSON.stringify(stageConfig.walls || []));
+
+    player.x = state.map.width / 2;
+    player.y = state.map.height / 2;
 
     // 3. Reset Spawn Flags
     midBossSpawned = false;
@@ -1008,7 +1512,7 @@ function continueToNextStage(withCompanion) {
     player.compoundInterest = false;
     player.invulnTimer = 0;
     player.regenTimer = 0;
-    state.companions = []; // Reset companions
+    // Keep companions across chapters - don't reset
 
     // Re-apply base config
     const config = charConfigs[state.selectedChar];
@@ -1040,10 +1544,8 @@ function continueToNextStage(withCompanion) {
     updatePlayerHpUi();
     updateInventoryUI();
 
-    // 6. Add Companion if selected
-    if (withCompanion) {
-        initCompanion('richkid');
-    }
+    // 6. Show intro story for new chapter
+    showIntroStory();
 }
 
 
@@ -1064,6 +1566,10 @@ function updatePlayerHpUi() {
 }
 
 function selectChar(type, el) {
+    // Only allow selecting fisherman (阿星)
+    if (type !== 'fisherman') {
+        return; // Ignore clicks on disabled characters
+    }
     state.selectedChar = type;
     document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
@@ -1131,6 +1637,7 @@ function startGame() {
         enemies = [];
         particles = [];
         xpGems = [];
+        healthPacks = [];
         damageNumbers = [];
         newEntitiesQueue = [];
 
@@ -1138,7 +1645,7 @@ function startGame() {
         playerHpContainer.style.display = 'block';
         updatePlayerHpUi();
         updateInventoryUI();
-        const stageConfig = STAGE_CONFIGS[state.selectedStage] || STAGE_CONFIGS[1];
+        const stageConfig = STAGE_CONFIGS[state.stage] || STAGE_CONFIGS[1];
         state.map.width = stageConfig.mapWidth || width;
         state.map.height = stageConfig.mapHeight || height;
         state.walls = JSON.parse(JSON.stringify(stageConfig.walls || []));
@@ -1188,11 +1695,21 @@ function showIntroStory() {
     const screen = document.getElementById('stage-transition-screen');
     screen.style.display = 'flex';
 
-    // Set Header to "Story"
+    // Set Header based on chapter
     const header = screen.querySelector('h2');
-    if (header) header.textContent = "故事";
+    const chapterTitles = ["第一章：校園浩劫", "第二章：迷霧森林", "第三章：錶面之下"];
+    if (header) header.textContent = chapterTitles[state.stage - 1] || "故事";
 
-    state.storyPage = 0;
+    // Set story page based on current stage
+    // Stage 1: index 0, Stage 2: index 3, Stage 3: index 8
+    if (state.stage === 1) {
+        state.storyPage = 0;
+    } else if (state.stage === 2) {
+        state.storyPage = 3;
+    } else if (state.stage === 3) {
+        state.storyPage = 8;
+    }
+
     renderStoryPage();
 }
 
@@ -1217,6 +1734,17 @@ function renderStoryPage() {
         storyText.innerHTML = pageData.text.replace(/\n/g, '<br>');
 
         if (pageData.choices) {
+            // Check if this is the Shanji choice (Chapter 2, page 6)
+            const isShanjiChoice = state.stage === 2 && state.storyPage === 6;
+            const hasAbandonedBoth = state.abandonedCompanions.includes('ahjie') &&
+                                     state.abandonedCompanions.includes('richkid');
+
+            // If player abandoned both previous companions, show dark path
+            if (isShanjiChoice && hasAbandonedBoth) {
+                // Change the story text to reflect the dark path
+                storyText.innerHTML = "突然，前方傳來腳步聲。<br><br>是山雞！她帶著一小隊倖存者。<br><br>「阿星...你釣魚的技術能幫我們獲取食物。跟我們一起吧。」<br><br>你看著山雞和她的隊伍，眼中閃過一絲危險的光芒...<br><br>在這個末日世界，弱肉強食。你已經拋棄了所有道德底線。";
+            }
+
             pageData.choices.forEach(choice => {
                 const btn = document.createElement('button');
                 btn.className = 'btn btn-blue mb-2 w-full'; // Use styled class
@@ -1225,6 +1753,22 @@ function renderStoryPage() {
                 btn.onclick = () => handleStoryChoice(choice);
                 btnContainer.appendChild(btn);
             });
+
+            // Add the dark option if conditions are met
+            if (isShanjiChoice && hasAbandonedBoth) {
+                const darkBtn = document.createElement('button');
+                darkBtn.className = 'btn mb-2 w-full';
+                darkBtn.style.marginBottom = '10px';
+                darkBtn.style.background = 'linear-gradient(45deg, #7f1d1d, #450a0a)';
+                darkBtn.style.boxShadow = '0 4px 15px rgba(127, 29, 29, 0.6)';
+                darkBtn.style.border = '2px solid #991b1b';
+                darkBtn.innerText = '⚠️ 劫財劫色，奴役山雞和她的群體 (極端黑暗路線)';
+                darkBtn.onclick = () => handleStoryChoice({
+                    text: darkBtn.innerText,
+                    action: 'enslave_shanji'
+                });
+                btnContainer.appendChild(darkBtn);
+            }
         }
     } else {
         // Standard Text Page
@@ -1240,20 +1784,86 @@ function renderStoryPage() {
 }
 
 function handleStoryChoice(choice) {
+    // Handle recruit actions - show recruitment dialogue first
     if (choice.action && choice.action.startsWith('recruit_')) {
         const type = choice.action.split('_')[1];
         if (!state.pendingCompanions) state.pendingCompanions = [];
         state.pendingCompanions.push(type);
+
+        // Show recruitment dialogue if available
+        const config = charConfigs[state.selectedChar];
+        if (config.companionDialogs && config.companionDialogs[type]) {
+            showRecruitmentDialogue(type);
+            return; // Don't continue to next page yet
+        }
     }
 
-    // Advancing logic:
-    // If choice has 'outcome', show it immediately? 
-    // Simplify: Just go to next page if normal, or if 'outcome' text provided, show it?
-    // Let's assume the choice leads to the next linear page for now, 
-    // OR if we want to branch, we'd need complex logic.
-    // For this simple request, we can just say "Choice Made -> Next Page".
-    // But if the user wants "Outcome", we can trigger a popup or just advance.
-    nextStoryPage();
+    // Handle abandon actions - gain powerful bonuses but companion becomes enemy
+    if (choice.action && choice.action.startsWith('abandon_')) {
+        const type = choice.action.split('_')[1];
+        state.abandonedCompanions.push(type);
+
+        // Grant powerful bonuses based on who was abandoned
+        if (type === 'ahjie') {
+            // Abandoned 阿傑: Gain +30% speed
+            player.stats.speed = (player.stats.speed || 1) * 1.3;
+            showDialog('你冷酷地拋下阿傑...獲得速度提升！', 4000);
+        } else if (type === 'shanji') {
+            // Abandoned 山雞: Gain +50% damage
+            player.stats.damage = (player.stats.damage || 1) * 1.5;
+            showDialog('你拒絕了山雞...獲得攻擊力提升！', 4000);
+        }
+    }
+
+    // Handle loot actions - take resources and abandon companion
+    if (choice.action && choice.action.startsWith('loot_')) {
+        const type = choice.action.split('_')[1];
+        state.abandonedCompanions.push(type);
+
+        if (type === 'richkid') {
+            // Looted 包子: Gain 2 levels instantly
+            levelUp();
+            levelUp();
+            showDialog('你搶走包子的VIP補給箱...立即升2級！', 4000);
+        }
+    }
+
+    // Handle enslave action - the darkest path
+    if (choice.action === 'enslave_shanji') {
+        state.enslavedShanji = true;
+        state.abandonedCompanions.push('shanji'); // Also counts as abandoned
+
+        // Grant extreme bonuses for taking the dark path
+        player.stats.damage = (player.stats.damage || 1) * 2.0; // +100% damage
+        player.stats.armor = (player.stats.armor || 0) + 10; // +10 armor
+        player.maxHp += 50; // +50 max HP
+        player.hp = player.maxHp; // Full heal
+        updatePlayerHpUi();
+
+        showDialog('你奴役了山雞和她的群體...獲得絕對的力量！', 5000);
+    }
+
+    // Handle ending choices (Chapter 3 only)
+    if (choice.action && choice.action.startsWith('ending_')) {
+        const endingType = choice.action; // "ending_destroy", "ending_cure", "ending_escape"
+        triggerEnding(endingType);
+        return;
+    }
+
+    // Determine if we should start game or continue story
+    // Chapter 1: After index 1 choice -> start game
+    // Chapter 2: After index 4 choice -> start game
+    // Otherwise: continue to next page
+    const shouldStartGame = (
+        (state.stage === 1 && state.storyPage === 1) ||  // Chapter 1 first choice (阿傑)
+        (state.stage === 2 && state.storyPage === 4)     // Chapter 2 first choice (包子)
+    );
+
+    if (shouldStartGame) {
+        startActualGame();
+    } else {
+        nextStoryPage();
+    }
 }
 
 function nextStoryPage() {
@@ -1261,6 +1871,77 @@ function nextStoryPage() {
     renderStoryPage();
 }
 
+function showRecruitmentDialogue(companionType) {
+    const config = charConfigs[state.selectedChar];
+
+    // Check existing companions to determine which dialogue to show
+    let dialogueKey = companionType;
+
+    // Get list of current companions (from pendingCompanions, excluding the one being recruited)
+    const existingCompanions = state.pendingCompanions ? [...state.pendingCompanions] : [];
+    // Remove the newly recruited companion from the list to get current companions
+    const currentCompanions = existingCompanions.filter(c => c !== companionType);
+
+    // Build dialogue key based on current companions + new companion
+    if (currentCompanions.length > 0) {
+        // Sort to ensure consistent key
+        const allCompanions = [...currentCompanions, companionType].sort();
+        dialogueKey = allCompanions.join('+');
+    }
+
+    // Try to get the specific dialogue, fallback to solo if not found
+    let dialogues = config.companionDialogs[dialogueKey] || config.companionDialogs[companionType];
+
+    if (!dialogues || dialogues.length === 0) {
+        // If no dialogue, just continue
+        continueAfterRecruitment();
+        return;
+    }
+
+    const storyText = document.getElementById('stage-story-text');
+    const btnContainer = document.getElementById('stage-btn-container');
+
+    let currentDialogueIndex = 0;
+
+    function showNextDialogue() {
+        if (currentDialogueIndex >= dialogues.length) {
+            // All dialogues shown, continue to next story page
+            continueAfterRecruitment();
+            return;
+        }
+
+        const dialogue = dialogues[currentDialogueIndex];
+        storyText.innerHTML = dialogue.replace(/\n/g, '<br>');
+
+        // Show continue button
+        btnContainer.innerHTML = `<button class="btn btn-cyan" onclick="window.continueRecruitmentDialogue()">繼續</button>`;
+
+        currentDialogueIndex++;
+    }
+
+    // Make the continue function globally accessible
+    window.continueRecruitmentDialogue = showNextDialogue;
+
+    // Show first dialogue
+    showNextDialogue();
+}
+
+function continueAfterRecruitment() {
+    // Clean up global function
+    delete window.continueRecruitmentDialogue;
+
+    // Continue with normal story flow
+    const shouldStartGame = (
+        (state.stage === 1 && state.storyPage === 1) ||  // Chapter 1 first choice (阿傑)
+        (state.stage === 2 && state.storyPage === 4)     // Chapter 2 first choice (包子)
+    );
+
+    if (shouldStartGame) {
+        startActualGame();
+    } else {
+        nextStoryPage();
+    }
+}
 
 function startActualGame() {
     document.getElementById('stage-transition-screen').style.display = 'none';
@@ -1307,11 +1988,17 @@ function update(dt) {
     handleInput(dt);
     handleSpawns(dt);
 
+    // Try random companion dialogue (every few seconds)
+    if (Math.floor(state.gameTime) % 10 === 0) {
+        tryRandomCompanionDialogue();
+    }
+
     if (newEntitiesQueue.length > 0) {
         newEntitiesQueue.forEach(item => {
             if (!item || !item.obj) return;
             if (item.cat === 'enemy' && enemies.length < MAX_ENEMIES) enemies.push(item.obj);
             if (item.cat === 'gem') xpGems.push(item.obj);
+            if (item.cat === 'health') healthPacks.push(item.obj);
             if (item.cat === 'proj') projectiles.push(item.obj);
         });
         newEntitiesQueue = [];
@@ -1326,6 +2013,7 @@ function update(dt) {
     enemies = enemies.filter(e => e && !e.dead);
     projectiles = projectiles.filter(p => p && !p.dead);
     xpGems = xpGems.filter(g => g && !g.dead);
+    healthPacks = healthPacks.filter(h => h && !h.dead);
     particles = particles.filter(p => p && !p.dead);
     damageNumbers = damageNumbers.filter(d => d && !d.dead);
 
@@ -1469,17 +2157,30 @@ function updateCamera(dt) {
 function handleSpawns(dt) {
     if (enemies.length >= MAX_ENEMIES) return; // Cap
 
-    if (!midBossSpawned && state.gameTime > 60 && state.stage === 1) { spawnBoss('mid'); midBossSpawned = true; }
-    if (!bigBossSpawned && state.gameTime > 180 && state.stage === 1) { spawnBoss('big'); bigBossSpawned = true; }
+    // Stage 1: School Campus
+    if (state.stage === 1) {
+        if (!midBossSpawned && state.gameTime > 60) { spawnBoss('mid'); midBossSpawned = true; }
+        if (!bigBossSpawned && state.gameTime > 180) { spawnBoss('big'); bigBossSpawned = true; }
+    }
 
-    // Stage 2 Bosses (Simple logic: spawn bosses again later in stage 2)
-    if (!midBossSpawned && state.stage === 2 && (state.gameTime - state.stageStartTime) > 60) { spawnBoss('mid'); midBossSpawned = true; }
-    if (!bigBossSpawned && state.stage === 2 && (state.gameTime - state.stageStartTime) > 180) { spawnBoss('big'); bigBossSpawned = true; }
-
-    // Calculate difficulty time
-    let difficultyTime = state.gameTime;
+    // Stage 2: Misty Forest
     if (state.stage === 2) {
-        difficultyTime = (state.gameTime - state.stageStartTime) * 1.2; // Stage 2 ramps up slightly faster
+        if (!midBossSpawned && (state.gameTime - state.stageStartTime) > 60) { spawnBoss('mid'); midBossSpawned = true; }
+        if (!bigBossSpawned && (state.gameTime - state.stageStartTime) > 180) { spawnBoss('big'); bigBossSpawned = true; }
+    }
+
+    // Stage 3: Factory
+    if (state.stage === 3) {
+        if (!midBossSpawned && (state.gameTime - state.stageStartTime) > 60) { spawnBoss('mid'); midBossSpawned = true; }
+        // Yaoge boss at 2 minutes (optional, based on player choice)
+        // For now, we'll skip yaoge and go straight to final boss
+        if (!bigBossSpawned && (state.gameTime - state.stageStartTime) > 180) { spawnBoss('big'); bigBossSpawned = true; }
+    }
+
+    // Calculate difficulty time (time since current stage started)
+    let difficultyTime = state.gameTime - state.stageStartTime;
+    if (state.stage === 2) {
+        difficultyTime = difficultyTime * 1.2; // Stage 2 ramps up slightly faster
     }
 
     let rate = Math.max(0.1, 0.8 - (difficultyTime / 120) * 0.5);
@@ -1490,6 +2191,16 @@ function handleSpawns(dt) {
         spawnTimer = 0;
         spawnEnemyLogic();
     }
+
+    // Spawn abandoned companions as powerful enemies
+    if (state.abandonedCompanions && state.abandonedCompanions.length > 0) {
+        state.abandonedSpawnTimer += dt;
+        // Spawn every 45 seconds
+        if (state.abandonedSpawnTimer > 45) {
+            state.abandonedSpawnTimer = 0;
+            spawnAbandonedCompanion();
+        }
+    }
 }
 
 function spawnEnemyLogic() {
@@ -1498,8 +2209,6 @@ function spawnEnemyLogic() {
     const camY = state.camera.y;
     const camW = width;
     const camH = height;
-    const mapW = state.map.width || width;
-    const mapH = state.map.height || height;
 
     const side = Math.floor(Math.random() * 4);
     let ex, ey;
@@ -1513,17 +2222,16 @@ function spawnEnemyLogic() {
         case 3: ex = camX - buffer; ey = camY + Math.random() * camH; break; // Left
     }
 
-    // Clamp to World Bounds (if strictly required, or let them spawn outside?)
-    // If we clamp, they might spawn ON SCREEN if we are at edge.
-    // Let's allow them to spawn slightly outside map if needed?
-    // Or just clamp and accept they might appear visible? 
-    // Let's clamp to be safe for physics, but maybe 100px padding?
-    // Actually, update loop might kill them if too far? No current logic kills for distance.
+    // Clamp spawn position to map bounds to prevent spawning outside walls
+    const mapW = state.map.width || 2000;
+    const mapH = state.map.height || 2000;
+    const margin = 30; // Keep enemies inside the outer wall boundary
+    ex = Math.max(margin, Math.min(ex, mapW - margin));
+    ey = Math.max(margin, Math.min(ey, mapH - margin));
 
-    // Simplest: Check if inside wall?
-    // Let's just spawn.
-
-    const scale = 1 + (state.gameTime / 100);
+    // Use stage time instead of total game time for enemy scaling
+    const stageTime = state.gameTime - state.stageStartTime;
+    const scale = 1 + (stageTime / 100);
     const r = Math.random();
 
     let type = 'basic';
@@ -1532,18 +2240,45 @@ function spawnEnemyLogic() {
     let color = '#ef4444';
     let radius = 12;
 
-    if (state.gameTime > 30 && r > 0.8) { type = 'jumper'; color = '#facc15'; speed = 40; hp = 60 * scale; }
-    else if (state.gameTime > 90 && r > 0.85) { type = 'kamikaze'; color = '#f97316'; speed = 120; hp = 40 * scale; }
-    else if (state.gameTime > 120 && r > 0.9) {
-        type = 'splitter'; color = '#22c55e'; speed = 45; hp = 150 * scale; radius = 16;
-        if (Math.random() < 0.3) {
-            // Elite?
+    // Stage-specific enemy types (based on stage time)
+    if (state.stage === 1) {
+        // Chapter 1: School Campus
+        if (stageTime > 30 && r > 0.75) {
+            type = 'teacher'; color = '#7f1d1d'; speed = 50; hp = 150 * scale; radius = 14; // Teacher Zombie
+        } else if (stageTime > 60 && r > 0.85) {
+            type = 'athlete'; color = '#facc15'; speed = 120; hp = 60 * scale; // Athlete Zombie (fast)
+        } else if (stageTime > 90 && r > 0.9) {
+            type = 'club'; color = '#f97316'; speed = 150; hp = 40 * scale; // Club Zombie (kamikaze)
+        } else {
+            type = 'student'; color = '#ef4444'; speed = 70; hp = 90 * scale; // Student Zombie
+        }
+    } else if (state.stage === 2) {
+        // Chapter 2: Misty Forest
+        if (stageTime > 30 && r > 0.7) {
+            type = 'spore'; color = '#22c55e'; speed = 40; hp = 200 * scale; radius = 16; // Spore Walker (splitter)
+        } else if (stageTime > 60 && r > 0.8) {
+            type = 'mosquito'; color = '#06b6d4'; speed = 140; hp = 30 * scale; radius = 8; // Giant Mosquito
+        } else if (stageTime > 45 && r > 0.85) {
+            type = 'dog'; color = '#92400e'; speed = 100; hp = 80 * scale; // Mutant Dog
+        } else {
+            type = 'hiker'; color = '#15803d'; speed = 65; hp = 100 * scale; // Infected Hiker
+        }
+    } else if (state.stage === 3) {
+        // Chapter 3: Factory
+        if (stageTime > 30 && r > 0.75) {
+            type = 'security'; color = '#1f2937'; speed = 55; hp = 180 * scale; radius = 14; // Security Zombie (armored)
+        } else if (stageTime > 60 && r > 0.85) {
+            type = 'experiment'; color = '#f0fdf4'; speed = 160; hp = 50 * scale; // Test Subject (fast kamikaze)
+        } else if (stageTime > 90 && r > 0.9) {
+            type = 'mutant'; color = '#10b981'; speed = 90; hp = 140 * scale; // Mass-Produced Mutant
+        } else {
+            type = 'worker'; color = '#6b7280'; speed = 70; hp = 110 * scale; // Worker Zombie
         }
     }
 
     enemies.push({
         id: Math.random(), type: type, x: ex, y: ey, radius: radius, color: color,
-        speed: speed * (1 + (state.gameTime / 600)), hp: hp, maxHp: hp,
+        speed: speed * (1 + (stageTime / 600)), hp: hp, maxHp: hp,
         pushX: 0, pushY: 0, flashTimer: 0, state: 'move', stateTimer: 0, dead: false
     });
 }
@@ -1553,24 +2288,175 @@ function spawnBoss(tier) {
     // Spawn above player relative to world
     let boss = {
         id: Math.random(), isBoss: true, x: player.x, y: player.y - 500,
-        pushX: 0, pushY: 0, flashTimer: 0, state: 'move', dead: false
+        pushX: 0, pushY: 0, flashTimer: 0, state: 'move', dead: false, summonTimer: 0, phase: 1
     };
 
-    // Ensure within map bounds Y (don't spawn in void if at top)
-    if (boss.y < 50) boss.y = player.y + 500; // Spawn below if at top
+    // Ensure within map bounds (don't spawn outside walls)
+    const mapW = state.map.width || 2000;
+    const mapH = state.map.height || 2000;
+    const margin = 100; // Boss needs more margin due to larger size
+
+    if (boss.y < margin) boss.y = player.y + 500; // Spawn below if at top
+    if (boss.y > mapH - margin) boss.y = player.y - 500; // Spawn above if at bottom
+    boss.x = Math.max(margin, Math.min(boss.x, mapW - margin));
+    boss.y = Math.max(margin, Math.min(boss.y, mapH - margin));
 
     // Trigger Boss Dialog
     triggerDialog('boss');
 
-    if (tier === 'mid') {
-        boss.type = 'midBoss'; boss.bossName = '巨型坦克'; boss.radius = 35; boss.color = '#7f1d1d';
-        boss.hp = 5000; boss.maxHp = 5000; boss.speed = 50;
-    } else {
-        boss.type = 'bigBoss'; boss.bossName = '深淵巨口'; boss.radius = 60; boss.color = '#4c1d95';
-        boss.hp = 25000; boss.maxHp = 25000; boss.speed = 30; boss.summonTimer = 0;
+    // Trigger companion dialogue for boss
+    setTimeout(() => {
+        triggerCompanionDialogue('onBoss');
+    }, 2000);
+
+    // Stage-specific bosses
+    if (state.stage === 1) {
+        // Chapter 1: School Campus
+        if (tier === 'mid') {
+            boss.type = 'disciplineMaster';
+            boss.bossName = '訓導主任';
+            boss.radius = 35;
+            boss.color = '#7f1d1d';
+            boss.hp = 5000;
+            boss.maxHp = 5000;
+            boss.speed = 50;
+        } else {
+            boss.type = 'principal';
+            boss.bossName = '變異校長';
+            boss.radius = 60;
+            boss.color = '#991b1b';
+            boss.hp = 25000;
+            boss.maxHp = 25000;
+            boss.speed = 30;
+        }
+    } else if (state.stage === 2) {
+        // Chapter 2: Misty Forest
+        if (tier === 'mid') {
+            boss.type = 'boar';
+            boss.bossName = '巨型野豬';
+            boss.radius = 40;
+            boss.color = '#92400e';
+            boss.hp = 6000;
+            boss.maxHp = 6000;
+            boss.speed = 70;
+        } else {
+            boss.type = 'guardian';
+            boss.bossName = '森林守護者';
+            boss.radius = 70;
+            boss.color = '#7c3aed';
+            boss.hp = 30000;
+            boss.maxHp = 30000;
+            boss.speed = 40;
+        }
+    } else if (state.stage === 3) {
+        // Chapter 3: Factory
+        if (tier === 'mid') {
+            boss.type = 'securityChief';
+            boss.bossName = '保全隊長';
+            boss.radius = 38;
+            boss.color = '#111827';
+            boss.hp = 7000;
+            boss.maxHp = 7000;
+            boss.speed = 55;
+        } else if (tier === 'yaoge') {
+            // Special boss: Failed Yaoge (only if player chose option C)
+            boss.type = 'yaogeBoss';
+            boss.bossName = '失控的耀哥';
+            boss.radius = 45;
+            boss.color = '#a855f7';
+            boss.hp = 10000;
+            boss.maxHp = 10000;
+            boss.speed = 80;
+            boss.teleportTimer = 0;
+        } else {
+            // Final boss: Research Director (3 phases)
+            boss.type = 'director';
+            boss.bossName = '研究主任 - 人形態';
+            boss.radius = 50;
+            boss.color = '#059669';
+            boss.hp = 40000;
+            boss.maxHp = 40000;
+            boss.speed = 60;
+            boss.regenTimer = 0;
+        }
     }
+
     state.bossObj = boss;
     enemies.push(boss);
+}
+
+function spawnAbandonedCompanion() {
+    if (!state.abandonedCompanions || state.abandonedCompanions.length === 0) return;
+
+    // Randomly select an abandoned companion
+    const type = state.abandonedCompanions[Math.floor(Math.random() * state.abandonedCompanions.length)];
+
+    // Spawn near player but outside view
+    const camX = state.camera.x;
+    const camY = state.camera.y;
+    const camW = width;
+    const camH = height;
+    const side = Math.floor(Math.random() * 4);
+    const buffer = 100;
+
+    let ex, ey;
+    switch (side) {
+        case 0: ex = camX + Math.random() * camW; ey = camY - buffer; break;
+        case 1: ex = camX + camW + buffer; ey = camY + Math.random() * camH; break;
+        case 2: ex = camX + Math.random() * camW; ey = camY + camH + buffer; break;
+        case 3: ex = camX - buffer; ey = camY + Math.random() * camH; break;
+    }
+
+    // Clamp to map bounds
+    const mapW = state.map.width || 2000;
+    const mapH = state.map.height || 2000;
+    const margin = 30;
+    ex = Math.max(margin, Math.min(ex, mapW - margin));
+    ey = Math.max(margin, Math.min(ey, mapH - margin));
+
+    // Create abandoned companion enemy with unique stats
+    let enemy = {
+        id: Math.random(),
+        type: `abandoned_${type}`,
+        x: ex,
+        y: ey,
+        pushX: 0,
+        pushY: 0,
+        flashTimer: 0,
+        state: 'move',
+        stateTimer: 0,
+        dead: false,
+        isAbandoned: true // Mark as abandoned companion
+    };
+
+    // Set stats based on companion type
+    if (type === 'ahjie') {
+        enemy.radius = 18;
+        enemy.color = '#dc2626'; // Red
+        enemy.hp = 800;
+        enemy.maxHp = 800;
+        enemy.speed = 120; // Very fast
+        enemy.name = '憤怒的阿傑';
+        showDialog('阿傑憤怒地追上來了！', 3000);
+    } else if (type === 'richkid') {
+        enemy.radius = 16;
+        enemy.color = '#ca8a04'; // Gold
+        enemy.hp = 1200;
+        enemy.maxHp = 1200;
+        enemy.speed = 80;
+        enemy.name = '怨恨的包子';
+        showDialog('包子帶著怨恨追來了！', 3000);
+    } else if (type === 'shanji') {
+        enemy.radius = 17;
+        enemy.color = '#9333ea'; // Purple
+        enemy.hp = 1000;
+        enemy.maxHp = 1000;
+        enemy.speed = 100;
+        enemy.name = '復仇的山雞';
+        showDialog('山雞來復仇了！', 3000);
+    }
+
+    enemies.push(enemy);
 }
 
 function updateEntities(dt) {
@@ -1784,19 +2670,102 @@ function updateEntities(dt) {
                 e.stateTimer -= dt; e.x += e.vx * dt; e.y += e.vy * dt;
                 if (e.stateTimer <= 0) e.state = 'move';
             }
-        } else if (e.type === 'bigBoss') {
+        } else if (e.isBoss) {
+            // Boss special behaviors
             const angle = Math.atan2(player.y - e.y, player.x - e.x);
             e.x += Math.cos(angle) * speed * dt;
             e.y += Math.sin(angle) * speed * dt;
+
+            // Phase transitions for multi-phase bosses
+            if (e.type === 'principal') {
+                // Principal: Phase 2 at 50% HP, Phase 3 at 20%
+                const hpPercent = e.hp / e.maxHp;
+                if (hpPercent <= 0.5 && e.phase === 1) {
+                    e.phase = 2;
+                    e.speed = 45; // Faster
+                    showDialog("我要讓這所學校永存！");
+                } else if (hpPercent <= 0.2 && e.phase === 2) {
+                    e.phase = 3;
+                    e.speed = 60; // Even faster
+                    showDialog("抱歉...學生們...");
+                }
+            } else if (e.type === 'guardian') {
+                // Forest Guardian: Phase changes
+                const hpPercent = e.hp / e.maxHp;
+                if (hpPercent <= 0.6 && e.phase === 1) {
+                    e.phase = 2;
+                    showDialog("外來者...必須死...");
+                } else if (hpPercent <= 0.3 && e.phase === 2) {
+                    e.phase = 3;
+                    e.speed = 80; // Berserk speed
+                }
+            } else if (e.type === 'director') {
+                // Research Director: 3-phase transformation
+                const hpPercent = e.hp / e.maxHp;
+                if (hpPercent <= 0.625 && e.phase === 1) {
+                    e.phase = 2;
+                    e.bossName = '研究主任 - 半變異';
+                    e.radius = 60;
+                    e.speed = 90;
+                    e.color = '#047857';
+                    showDialog("力量...我感受到了永生的力量！");
+                } else if (hpPercent <= 0.25 && e.phase === 2) {
+                    e.phase = 3;
+                    e.bossName = '研究主任 - 完全體';
+                    e.radius = 75;
+                    e.speed = 40;
+                    e.color = '#065f46';
+                    showDialog("這就是...神的領域！");
+                }
+                // Phase 3: Regeneration
+                if (e.phase === 3) {
+                    e.regenTimer += dt;
+                    if (e.regenTimer > 1) {
+                        e.regenTimer = 0;
+                        e.hp = Math.min(e.hp + 100, e.maxHp);
+                    }
+                }
+            } else if (e.type === 'yaogeBoss') {
+                // Yaoge: Random teleportation
+                e.teleportTimer += dt;
+                if (e.teleportTimer > 3) {
+                    e.teleportTimer = 0;
+                    e.x = player.x + (Math.random() - 0.5) * 400;
+                    e.y = player.y + (Math.random() - 0.5) * 400;
+
+                    // Clamp teleport position to map bounds
+                    const mapW = state.map.width || 2000;
+                    const mapH = state.map.height || 2000;
+                    const margin = 100;
+                    e.x = Math.max(margin, Math.min(e.x, mapW - margin));
+                    e.y = Math.max(margin, Math.min(e.y, mapH - margin));
+
+                    createParticles(e.x, e.y, '#a855f7', 10);
+                }
+            }
+
+            // Boss summoning logic
             e.summonTimer += dt;
-            if (e.summonTimer > 5) {
+            const summonInterval = e.type === 'director' ? 4 : 6;
+            if (e.summonTimer > summonInterval) {
                 e.summonTimer = 0;
-                for (let k = 0; k < 3; k++) {
+                const summonCount = e.phase === 3 ? 5 : 3;
+                const mapW = state.map.width || 2000;
+                const mapH = state.map.height || 2000;
+                const margin = 30;
+
+                for (let k = 0; k < summonCount; k++) {
+                    let sx = e.x + (Math.random() - 0.5) * 80;
+                    let sy = e.y + (Math.random() - 0.5) * 80;
+                    // Clamp summoned enemy position to map bounds
+                    sx = Math.max(margin, Math.min(sx, mapW - margin));
+                    sy = Math.max(margin, Math.min(sy, mapH - margin));
+
                     newEntitiesQueue.push({
                         cat: 'enemy', obj: {
                             id: Math.random(), type: 'basic',
-                            x: e.x + (Math.random() - 0.5) * 50, y: e.y + (Math.random() - 0.5) * 50,
-                            radius: 10, color: '#ef4444', speed: 80, hp: 50, maxHp: 50, pushX: 0, pushY: 0, flashTimer: 0, dead: false
+                            x: sx, y: sy,
+                            radius: 10, color: e.color, speed: 80, hp: 60, maxHp: 60, pushX: 0, pushY: 0, flashTimer: 0, dead: false, state: 'move', stateTimer: 0
                         }
                     });
                 }
@@ -1821,7 +2790,33 @@ function updateEntities(dt) {
             g.x += (player.x - g.x) * 6 * dt;
             g.y += (player.y - g.y) * 6 * dt;
             if (Math.hypot(g.x - player.x, g.y - player.y) < player.radius) {
-                gainXp(g.val); g.dead = true;
+                gainXp(g.val);
+                g.dead = true;
+                SoundMgr.pickup(); // Pickup sound
+
+                // Trigger companion dialogue on pickup (low chance)
+                if (Math.random() < 0.05) { // 5% chance
+                    triggerCompanionDialogue('onPickup');
+                }
+            }
+        }
+    }
+
+    // Health pack pickup
+    for (let h of healthPacks) {
+        if (h.dead) continue;
+        const pickupR = player.stats.pickupRange || 150;
+        if (Math.hypot(h.x - player.x, h.y - player.y) < pickupR) {
+            h.x += (player.x - h.x) * 6 * dt;
+            h.y += (player.y - h.y) * 6 * dt;
+            if (Math.hypot(h.x - player.x, h.y - player.y) < player.radius) {
+                // Heal 20% of max HP
+                const healAmount = Math.floor(player.maxHp * 0.2);
+                player.hp = Math.min(player.maxHp, player.hp + healAmount);
+                updatePlayerHpUi();
+                spawnDamageNumber(player.x, player.y, `+${healAmount}`, '#22c55e');
+                SoundMgr.heal(); // Heal sound
+                h.dead = true;
             }
         }
     }
@@ -1844,6 +2839,24 @@ function updateEntities(dt) {
 }
 
 function checkCollisions() {
+    // Enemies vs Companions
+    for (const e of enemies) {
+        if (!e || e.dead) continue;
+
+        // Check collision with companions first
+        for (const c of state.companions) {
+            if (!c || c.dead) continue;
+            if (Math.hypot(e.x - c.x, e.y - c.y) < e.radius + c.radius) {
+                // HIT COMPANION
+                if (c.invulnTimer <= 0) {
+                    let rawDmg = 15; // Base damage to companions
+                    if (e.isBoss) rawDmg = 25;
+                    damageCompanion(c, rawDmg);
+                }
+            }
+        }
+    }
+
     // Player vs Enemy
     for (const e of enemies) {
         if (!e || e.dead) continue;
@@ -1868,9 +2881,11 @@ function checkCollisions() {
                         player.shield = 0;
                         player.hp -= rem;
                         spawnDamageNumber(player.x, player.y, `-${Math.ceil(rem)}`, "#ef4444");
+                        SoundMgr.hurt(); // Player hurt sound
                     }
                 } else {
                     player.hp -= finalDmg;
+                    SoundMgr.hurt(); // Player hurt sound
                 }
 
                 player.invulnTimer = 0.5;
@@ -1878,6 +2893,13 @@ function checkCollisions() {
 
                 // Hurt Dialog
                 triggerDialog('hurt');
+
+                // Trigger companion dialogue when hurt
+                if (Math.random() < 0.3) { // 30% chance
+                    setTimeout(() => {
+                        triggerCompanionDialogue('onHurt');
+                    }, 1500);
+                }
 
                 // Thorns Check (Ah Zhang innate)
                 if (player.stats.thorns > 0) {
@@ -1956,6 +2978,7 @@ function checkCollisions() {
                 }
 
                 e.hp -= dmg;
+                SoundMgr.hit(); // Enemy hit sound
 
                 e.flashTimer = 0.1;
 
@@ -2082,9 +3105,11 @@ function draw() {
     const mapW = state.map.width || width;
     const mapH = state.map.height || height;
 
-    // Background Color
-    if (state.selectedStage === 3) {
-        ctx.fillStyle = '#0f172a'; // Dark Forest
+    // Background Color based on current stage
+    if (state.stage === 3) {
+        ctx.fillStyle = '#0f172a'; // Dark Factory
+    } else if (state.stage === 2) {
+        ctx.fillStyle = '#1e3a1e'; // Misty Forest
     } else {
         ctx.fillStyle = '#374151'; // Campus
     }
@@ -2092,7 +3117,10 @@ function draw() {
     ctx.fillRect(state.camera.x - 100, state.camera.y - 100, width + 200, height + 200);
     // Actually efficient to draw only visible, but map size is usually finite.
     // Let's draw the specific map area if it's large.
-    if (state.selectedStage === 3) {
+    if (state.stage === 3) {
+        ctx.fillStyle = '#1e293b'; // Factory Floor (dark slate)
+        ctx.fillRect(0, 0, mapW, mapH);
+    } else if (state.stage === 2) {
         ctx.fillStyle = '#064e3b'; // Forest Floor
         ctx.fillRect(0, 0, mapW, mapH);
     }
@@ -2148,6 +3176,34 @@ function draw() {
         ctx.lineTo(g.x, g.y + size);
         ctx.lineTo(g.x - size, g.y);
         ctx.fill();
+
+        ctx.shadowBlur = 0;
+    });
+
+    // Health Packs
+    healthPacks.forEach(h => {
+        if (!h || h.dead) return;
+
+        // Pulsating glow effect
+        const pulse = 1 + Math.sin(state.gameTime * 4 + h.x) * 0.15;
+        const size = h.radius * pulse;
+
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = '#ef4444';
+
+        // Draw red cross (medical symbol)
+        ctx.fillStyle = '#ef4444';
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+
+        // Vertical bar
+        ctx.fillRect(h.x - size * 0.3, h.y - size, size * 0.6, size * 2);
+        // Horizontal bar
+        ctx.fillRect(h.x - size, h.y - size * 0.3, size * 2, size * 0.6);
+
+        // White outline for visibility
+        ctx.strokeRect(h.x - size * 0.3, h.y - size, size * 0.6, size * 2);
+        ctx.strokeRect(h.x - size, h.y - size * 0.3, size * 2, size * 0.6);
 
         ctx.shadowBlur = 0;
     });
@@ -2213,15 +3269,61 @@ function draw() {
     if (state.companions) {
         state.companions.forEach(c => {
             if (c.dead) return;
+
+            // Flashing effect when invulnerable
+            const alpha = (c.invulnTimer > 0 && Math.floor(state.gameTime * 10) % 2 === 0) ? 0.5 : 1.0;
+            ctx.globalAlpha = alpha;
+
+            // Draw companion body
             if (c.imgObj && c.imgObj.complete && c.imgObj.naturalWidth !== 0) {
-                const size = c.radius * 2.8; ctx.drawImage(c.imgObj, c.x - size / 2, c.y - size / 2, size, size);
+                const size = c.radius * 2.8;
+                ctx.drawImage(c.imgObj, c.x - size / 2, c.y - size / 2, size, size);
             } else {
-                ctx.beginPath(); ctx.fillStyle = c.color; ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath();
+                ctx.fillStyle = c.color;
+                ctx.arc(c.x, c.y, c.radius, 0, Math.PI * 2);
+                ctx.fill();
             }
-            // HP
+
+            ctx.globalAlpha = 1.0; // Reset alpha
+
+            // Name label
+            const companionName = c.type === 'ahjie' ? '阿傑' :
+                                 c.type === 'richkid' ? '包子' :
+                                 c.type === 'shanji' ? '山雞' : c.type;
+            ctx.font = 'bold 10px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#000';
+            ctx.fillText(companionName, c.x + 1, c.y - 30 + 1);
+            ctx.fillStyle = '#fff';
+            ctx.fillText(companionName, c.x, c.y - 30);
+
+            // HP Bar
+            const barWidth = 30;
+            const barHeight = 5;
+            const barX = c.x - barWidth / 2;
+            const barY = c.y - 22;
             const pct = Math.max(0, c.hp / c.maxHp);
-            ctx.fillStyle = '#374151'; ctx.fillRect(c.x - 10, c.y - 20, 20, 4);
-            ctx.fillStyle = '#10b981'; ctx.fillRect(c.x - 10, c.y - 20, 20 * pct, 4);
+
+            // Background
+            ctx.fillStyle = '#1f2937';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+
+            // HP fill (color changes based on HP)
+            if (pct > 0.5) {
+                ctx.fillStyle = '#10b981'; // Green
+            } else if (pct > 0.25) {
+                ctx.fillStyle = '#f59e0b'; // Orange
+            } else {
+                ctx.fillStyle = '#ef4444'; // Red
+            }
+            ctx.fillRect(barX, barY, barWidth * pct, barHeight);
+
+            // HP bar border
+            ctx.strokeStyle = '#374151';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(barX, barY, barWidth, barHeight);
         });
     }
 
@@ -2280,6 +3382,39 @@ function draw() {
         if (e.isBoss) {
             ctx.fillStyle = '#000'; ctx.fillRect(e.x - 30, e.y - e.radius - 15, 60, 8);
             ctx.fillStyle = '#ef4444'; ctx.fillRect(e.x - 30, e.y - e.radius - 15, 60 * (e.hp / e.maxHp), 8);
+        }
+
+        // Abandoned companion name tag
+        if (e.isAbandoned && e.name) {
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            // Shadow for readability
+            ctx.fillStyle = '#000';
+            ctx.fillText(e.name, e.x + 1, e.y - e.radius - 25 + 1);
+            // Main text
+            ctx.fillStyle = '#fff';
+            ctx.fillText(e.name, e.x, e.y - e.radius - 25);
+
+            // HP bar for abandoned companions
+            const barWidth = 40;
+            const barHeight = 5;
+            const barX = e.x - barWidth / 2;
+            const barY = e.y - e.radius - 15;
+            const pct = Math.max(0, e.hp / e.maxHp);
+
+            // Background
+            ctx.fillStyle = '#1f2937';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+
+            // HP fill
+            ctx.fillStyle = e.color;
+            ctx.fillRect(barX, barY, barWidth * pct, barHeight);
+
+            // HP bar border
+            ctx.strokeStyle = '#374151';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(barX, barY, barWidth, barHeight);
         }
     });
 
@@ -2391,3 +3526,82 @@ window.addEventListener('mousedown', () => {
     if (Date.now() - lastClickTime < 300) return; // Debounce
     lastClickTime = Date.now();
 });
+
+// Prevent canvas touch scrolling and zooming
+canvas.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+canvas.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+canvas.addEventListener('touchend', e => e.preventDefault(), { passive: false });
+
+// Prevent double-tap zoom
+let lastTouchEnd = 0;
+document.addEventListener('touchend', e => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) {
+        e.preventDefault();
+    }
+    lastTouchEnd = now;
+}, false);
+
+// --- ACHIEVEMENT UI FUNCTIONS ---
+function showAchievements() {
+    const screen = document.getElementById('achievements-screen');
+    const endingsList = document.getElementById('endings-list');
+    const statsList = document.getElementById('stats-list');
+
+    // Display endings
+    const endings = [
+        { key: 'ending_destroy', title: '🔥 必要之惡', desc: '啟動自毀裝置，徹底消滅病毒' },
+        { key: 'ending_cure', title: '💚 新的開始', desc: '竊取樣本，成功研發解藥' },
+        { key: 'ending_escape', title: '🏍️ 流浪者', desc: '帶著樣本逃離，一路向西' },
+        { key: 'ending_richkid_love', title: '💖 禁忌之愛', desc: '和包子一起離開，開始新的人生' },
+        { key: 'ending_shanji_selfish', title: '⚖️ 利益同盟', desc: '和山雞結盟，各取所需' },
+        { key: 'ending_tyrant', title: '🔴 暴君降臨', desc: '拋棄所有人性，成為末日暴君（極端黑暗結局）' }
+    ];
+
+    endingsList.innerHTML = endings.map(e => {
+        const unlocked = AchievementManager.data.endings[e.key];
+        return `
+            <div class="p-3 rounded" style="background: ${unlocked ? '#1a4d2e' : '#2a2a2a'}; border: 2px solid ${unlocked ? '#4ade80' : '#555'};">
+                <div class="text-lg ${unlocked ? 'text-green-400' : 'text-gray-500'}">${e.title}</div>
+                <div class="text-sm ${unlocked ? 'text-gray-300' : 'text-gray-600'}">${unlocked ? e.desc : '???'}</div>
+            </div>
+        `;
+    }).join('');
+
+    // Display stats
+    const stats = AchievementManager.data.stats;
+    const bestTimeStr = stats.bestTime ? formatTime(stats.bestTime) : '--:--';
+
+    statsList.innerHTML = `
+        <div>🎮 總遊戲次數：<span class="text-yellow-400">${stats.totalGames}</span></div>
+        <div>✅ 通關次數：<span class="text-green-400">${stats.completions}</span></div>
+        <div>💀 總擊殺數：<span class="text-red-400">${stats.totalKills}</span></div>
+        <div>🏆 最高擊殺：<span class="text-orange-400">${stats.maxKills}</span></div>
+        <div>⏱️ 最佳時間：<span class="text-blue-400">${bestTimeStr}</span></div>
+        <div>📖 結局收集：<span class="text-purple-400">${AchievementManager.getProgress()}</span></div>
+    `;
+
+    document.getElementById('story-screen').style.display = 'none';
+    screen.style.display = 'flex';
+}
+
+function closeAchievements() {
+    document.getElementById('achievements-screen').style.display = 'none';
+    document.getElementById('story-screen').style.display = 'flex';
+}
+
+function resetAchievements() {
+    if (confirm('確定要重置所有成就記錄嗎？此操作無法復原！')) {
+        AchievementManager.reset();
+        showAchievements(); // Refresh display
+    }
+}
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Initialize achievements on load
+AchievementManager.init();
